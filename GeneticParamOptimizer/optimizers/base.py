@@ -1,5 +1,6 @@
 from GeneticParamOptimizer.hyperparameter.param_selection import SearchSpaceEvolutionary
 from flair.data import Corpus
+from GeneticParamOptimizer.optimizers.multiprocessor import multiprocess
 import itertools
 import random
 
@@ -20,6 +21,7 @@ class ParamOptimizer():
         self.cross_rate = cross_rate
         self.mutation_rate = mutation_rate
         self.budget = search_space.budget
+        self.parameters = search_space.parameters
 
         self.population = self.get_initial_population(search_space.parameters, population_size)
 
@@ -36,7 +38,10 @@ class ParamOptimizer():
             entire_population.append(dict(zip(keys, instance)))
         return entire_population
 
+    def run(self):
+        multiprocess(self)
+
 
 class TextClassificationOptimizer(ParamOptimizer):
-    def __init__(self, search_space):
-        super().__init__(search_space)
+    def __init__(self, corpus, search_space):
+        super().__init__(corpus, search_space)
