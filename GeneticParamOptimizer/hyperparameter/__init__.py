@@ -1,13 +1,24 @@
-#TODO: ADD BUDGET
-from GeneticParamOptimizer.hyperparameter.parameter import (Budget)
-from flair.hyperparameter import (
-    Parameter,
-    SEQUENCE_TAGGER_PARAMETERS,
-    TRAINING_PARAMETERS,
-    DOCUMENT_EMBEDDING_PARAMETERS,
+from GeneticParamOptimizer.hyperparameter.selectors import (
+    TextClassificationParamSelector
 )
-from flair.hyperparameter.param_selection import (
-    SequenceTaggerParamSelector,
-    TextClassifierParamSelector,
-    SearchSpace,
+
+from GeneticParamOptimizer.hyperparameter.search_spaces import (
+    SearchSpace
+)
+
+from GeneticParamOptimizer.hyperparameter.optimizers import (
+    GeneticOptimizer,
+    GridSearchOptimizer,
+    RandomSearchOptimizer,
+    ParamOptimizer
+)
+
+from GeneticParamOptimizer.hyperparameter.parameters import (
+    Parameter,
+    Budget
+)
+
+from GeneticParamOptimizer.hyperparameter.utils import (
+    choice,
+    uniform
 )
