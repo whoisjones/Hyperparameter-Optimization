@@ -6,7 +6,7 @@ from flair.datasets import TREC_6
 
 corpus = TREC_6()
 search_space = search_spaces.SearchSpace()
-search_space.add_parameter(Parameter.EMBEDDINGS, choice, options=[WordEmbeddings('glove')])
+search_space.add_parameter(Parameter.EMBEDDINGS, choice, options=[[WordEmbeddings('glove')]])
 search_space.add_parameter(Parameter.BATCH_SIZE, choice, options=[4, 8, 12, 16])
 search_space.add_parameter(Parameter.HIDDEN_SIZE, choice, options=[128, 256, 512])
 search_space.add_parameter(Parameter.LEARNING_RATE , choice, options=[0.01, 0.05, 0.1])

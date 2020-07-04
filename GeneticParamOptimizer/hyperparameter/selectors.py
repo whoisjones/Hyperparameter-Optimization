@@ -40,7 +40,10 @@ class ParamSelector():
 
     def train(self, params):
 
-        corpus = self.corpus.copy()
+        print(mp.current_process().name)
+        print("started")
+
+        corpus = self.corpus
 
         model = self._set_up_model(params)
 
@@ -70,7 +73,7 @@ class ParamSelector():
         number_of_processes = mp.cpu_count()
 
         with mp.Pool(number_of_processes) as pool:
-            pool.map_async(train, params)
+            pool.map_async(self.train, params)
             pool.close()
             pool.join()
 
@@ -111,19 +114,19 @@ class TextClassificationParamSelector(ParamSelector):
 
         self.multi_label = multi_label
         self.document_embedding_type = document_embedding_type
+        self.label_dictionary = corpus.make_label_dictionary()
 
     def _set_up_model(self, params: dict):
-
         if self.document_embedding_type == "lstm":
-            embdding_params = {
-                key: params[key] for key in params if key in DOCUMENT_RNN_EMBEDDING_PARAMETERS
+            embedding_params = {
+                key: params[key] for key, value in params.items() if key in DOCUMENT_RNN_EMBEDDING_PARAMETERS
             }
-            document_embedding = DocumentRNNEmbeddings(**embdding_params)
+            document_embedding = DocumentRNNEmbeddings(**embedding_params)
         else:
-            embdding_params = {
-                key: params[key] for key in params if key in DOCUMENT_POOL_EMBEDDING_PARAMETERS
+            embedding_params = {
+                key: params[key] for key, value in params.items() if key in DOCUMENT_POOL_EMBEDDING_PARAMETERS
             }
-            document_embedding = DocumentPoolEmbeddings(**embdding_params)
+            document_embedding = DocumentPoolEmbeddings(**embedding_params)
 
         text_classifier: TextClassifier = TextClassifier(
             label_dictionary=self.label_dictionary,
