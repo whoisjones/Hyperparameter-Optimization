@@ -1,9 +1,11 @@
 from typing import Union
 from pathlib import Path
 from abc import abstractmethod
+from datetime import datetime
 
 from GeneticParamOptimizer.hyperparameter.optimizers import ParamOptimizer
 from GeneticParamOptimizer.hyperparameter.parameters import *
+from GeneticParamOptimizer.hyperparameter.multiprocessor import *
 
 import flair.nn
 from flair.data import Corpus
@@ -20,7 +22,8 @@ class ParamSelector():
             corpus: Corpus,
             base_path: Union[str, Path],
             evaluation_metric: EvaluationMetric,
-            optimization_value: OptimizationValue
+            optimization_value: OptimizationValue,
+            max_epochs: int = 50,
     ):
         if type(base_path) is str:
             base_path = Path(base_path)
@@ -29,18 +32,61 @@ class ParamSelector():
         self.base_path = base_path
         self.evaluation_metric = evaluation_metric
         self.optimization_value = optimization_value
+        self.max_epochs = max_epochs
 
     @abstractmethod
     def _set_up_model(self, params: dict) -> flair.nn.Model:
         pass
 
-    def _objective(self, params):
+    def train(self, params):
+
+        corpus = self.corpus.copy()
+
         model = self._set_up_model(params)
 
+        training_params = {
+            key: params[key] for key in params if key in TRAINING_PARAMETERS
+        }
+        model_trainer_parameters = {
+            key: params[key] for key in params if key in MODEL_TRAINER_PARAMETERS
+        }
+
+        trainer: ModelTrainer = ModelTrainer(
+            model, corpus, **model_trainer_parameters
+        )
+
+        path = Path(self.base_path) / str(datetime.now())
+
+        result = trainer.train(
+            path,
+            max_epochs=self.max_epochs,
+            param_selection_mode=True,
+            **training_params,
+        )
+
+
+    def _objective(self, params):
+
+        number_of_processes = mp.cpu_count()
+
+        with mp.Pool(number_of_processes) as pool:
+            pool.map_async(train, params)
+            pool.close()
+            pool.join()
+
     def optimize(self, optimizer: ParamOptimizer):
-        optimizer = optimizer
-        #look for min value
-        self._objective()
+
+        if optimizer.__class__.__name__ == "GeneticOptimizer":
+            params = optimizer.population
+        elif optimizer.__class__.__name__ == "GridSearchOptimizer":
+            params = optimizer.search_grid
+        else:
+            raise Exception("Couldn't find parameters of optimizer. Please use GeneticOptimizer or GridSearchOptimizer.")
+
+        for sent in self.corpus.get_all_sentences():
+            sent.clear_embeddings()
+
+        self._objective(params=params)
 
         #TODO LOGGING INFO HERE
 
@@ -53,17 +99,18 @@ class TextClassificationParamSelector(ParamSelector):
             document_embedding_type: str,
             evaluation_metric: EvaluationMetric = EvaluationMetric.MICRO_F1_SCORE,
             optimization_value: OptimizationValue = OptimizationValue.DEV_LOSS,
+            max_epochs: int = 50,
     ):
         super().__init__(
             corpus,
             base_path,
             evaluation_metric,
-            optimization_value
+            optimization_value,
+            max_epochs
         )
 
         self.multi_label = multi_label
         self.document_embedding_type = document_embedding_type
-        self.label_dict = corpus.make_label_dictionary()
 
     def _set_up_model(self, params: dict):
 

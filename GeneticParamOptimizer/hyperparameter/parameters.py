@@ -48,3 +48,5 @@ class Parameter(Enum):
 DOCUMENT_RNN_EMBEDDING_PARAMETERS = inspect.getfullargspec(DocumentRNNEmbeddings).args
 DOCUMENT_POOL_EMBEDDING_PARAMETERS = inspect.getfullargspec(DocumentPoolEmbeddings).args
 SEQUENCE_TAGGER_PARAMETERS = inspect.getfullargspec(SequenceTagger).args
+TRAINING_PARAMETERS = inspect.getfullargspec(ModelTrainer.train()).args
+MODEL_TRAINER_PARAMETERS = inspect.getfullargspec(ModelTrainer).args

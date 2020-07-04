@@ -1,9 +1,6 @@
 import itertools
-import random
 from GeneticParamOptimizer.hyperparameter.multiprocessor import multiprocess
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
-from flair.data import Corpus
-import inspect
 
 class ParamOptimizer():
     def __init__(

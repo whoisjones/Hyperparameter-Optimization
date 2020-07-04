@@ -4,7 +4,8 @@ from flair.embeddings import DocumentRNNEmbeddings
 from flair.models import TextClassifier
 from flair.trainers import ModelTrainer
 
-def train(corpus, labels, configuration):
+def train(corpus, configuration):
+    label_dict = corpus.make_label_dictionary()
     word_embeddings = configuration.embeddings
     document_embeddings = DocumentRNNEmbeddings(word_embeddings, hidden_size=configuration.hidden_size)
     classifier = TextClassifier(document_embeddings, label_dictionary=labels)
@@ -16,12 +17,10 @@ def train(corpus, labels, configuration):
                   patience=5,
                   max_epochs=150)
 
-def multiprocess(optimizer: object):
+def multiprocess(params, corpus):
     number_of_processes = mp.cpu_count()
-    corpus = optimizer.corpus
-    label_dict = corpus.make_label_dictionary()
     with mp.Pool(number_of_processes) as pool:
-        setup_train = partial(train, corpus, label_dict)
-        pool.map_async(setup_train, optimizer.population)
+        setup_train = partial(train, corpus)
+        pool.map_async(setup_train, params)
         pool.close()
         pool.join()
