@@ -9,7 +9,6 @@ from GeneticParamOptimizer.hyperparameter.search_spaces import (
 from GeneticParamOptimizer.hyperparameter.optimizers import (
     GeneticOptimizer,
     GridSearchOptimizer,
-    RandomSearchOptimizer,
     ParamOptimizer
 )
 
