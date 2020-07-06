@@ -2,15 +2,13 @@ from typing import Union
 from pathlib import Path
 from abc import abstractmethod
 from datetime import datetime
-from random import shuffle
-
 
 from GeneticParamOptimizer.hyperparameter.optimizers import ParamOptimizer
 from GeneticParamOptimizer.hyperparameter.parameters import *
-from GeneticParamOptimizer.hyperparameter.multiprocessor import *
+from GeneticParamOptimizer.hyperparameter.multiprocessor import NonDaemonPool
 
 import flair.nn
-from flair.datasets import TREC_6
+from flair.datasets import *
 from flair.data import Corpus
 from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings
 from flair.models import TextClassifier
@@ -31,7 +29,7 @@ class ParamSelector():
         if type(base_path) is str:
             base_path = Path(base_path)
 
-        self.corpus = corpus
+        self.corpus_name = corpus.__class__.__name__
         self.base_path = base_path
         self.evaluation_metric = evaluation_metric
         self.optimization_value = optimization_value
@@ -43,7 +41,11 @@ class ParamSelector():
 
     def train(self, params):
 
-        corpus = TREC_6()
+        corpus_class = eval(self.corpus_name)
+        corpus = corpus_class()
+
+        for sent in corpus.get_all_sentences():
+            sent.clear_embeddings()
 
         model = self._set_up_model(params)
 
@@ -68,38 +70,18 @@ class ParamSelector():
         )
 
     def _objective(self, params):
-        """
-        with mp.Pool(processes=4) as pool:
-            pool.map_async(self.train, params)
-            pool.close()
-            pool.join()
-            """
-        processes = []
-        for i in range(4):
-            p = mp.Process(target=self.train, args=(params[i],))
-            p.start()
-            processes.append(p)
 
-        for p in processes:
-            p.join()
+        pool = NonDaemonPool()
+        for task in params:
+            pool.apply_async(self.train, args=(task,))
+        pool.close()
+        pool.join()
 
 
 
     def optimize(self, optimizer: ParamOptimizer):
-
-        if optimizer.__class__.__name__ == "GeneticOptimizer":
-            params = optimizer.population
-        elif optimizer.__class__.__name__ == "GridSearchOptimizer":
-            params = optimizer.search_grid
-        else:
-            raise Exception("Couldn't find parameters of optimizer. Please use GeneticOptimizer or GridSearchOptimizer.")
-
-        for sent in self.corpus.get_all_sentences():
-            sent.clear_embeddings()
-
+        params = optimizer.search_grid
         self._objective(params=params)
-
-        #TODO LOGGING INFO HERE
 
 class TextClassificationParamSelector(ParamSelector):
     def __init__(
