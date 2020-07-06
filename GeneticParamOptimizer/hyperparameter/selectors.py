@@ -2,12 +2,15 @@ from typing import Union
 from pathlib import Path
 from abc import abstractmethod
 from datetime import datetime
+from random import shuffle
+
 
 from GeneticParamOptimizer.hyperparameter.optimizers import ParamOptimizer
 from GeneticParamOptimizer.hyperparameter.parameters import *
 from GeneticParamOptimizer.hyperparameter.multiprocessor import *
 
 import flair.nn
+from flair.datasets import TREC_6
 from flair.data import Corpus
 from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings
 from flair.models import TextClassifier
@@ -40,18 +43,15 @@ class ParamSelector():
 
     def train(self, params):
 
-        print(mp.current_process().name)
-        print("started")
-
-        corpus = self.corpus
+        corpus = TREC_6()
 
         model = self._set_up_model(params)
 
         training_params = {
-            key: params[key] for key in params if key in TRAINING_PARAMETERS
+            key: params[key] for key, value in params.items() if key in TRAINING_PARAMETERS
         }
         model_trainer_parameters = {
-            key: params[key] for key in params if key in MODEL_TRAINER_PARAMETERS
+            key: params[key] for key, value in params.items() if key in MODEL_TRAINER_PARAMETERS
         }
 
         trainer: ModelTrainer = ModelTrainer(
@@ -60,22 +60,30 @@ class ParamSelector():
 
         path = Path(self.base_path) / str(datetime.now())
 
-        result = trainer.train(
+        trainer.train(
             path,
             max_epochs=self.max_epochs,
             param_selection_mode=True,
             **training_params,
         )
 
-
     def _objective(self, params):
-
-        number_of_processes = mp.cpu_count()
-
-        with mp.Pool(number_of_processes) as pool:
+        """
+        with mp.Pool(processes=4) as pool:
             pool.map_async(self.train, params)
             pool.close()
             pool.join()
+            """
+        processes = []
+        for i in range(4):
+            p = mp.Process(target=self.train, args=(params[i],))
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
+
+
 
     def optimize(self, optimizer: ParamOptimizer):
 
