@@ -77,8 +77,6 @@ class ParamSelector():
         pool.close()
         pool.join()
 
-
-
     def optimize(self, optimizer: ParamOptimizer):
         params = optimizer.search_grid
         self._objective(params=params)
