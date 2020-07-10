@@ -62,20 +62,26 @@ class ParamSelector():
 
         path = Path(self.base_path) / str(datetime.now())
 
-        trainer.train(
+        results = trainer.train(
             path,
             max_epochs=self.max_epochs,
             param_selection_mode=True,
             **training_params,
         )
 
+        return results
+
     def _objective(self, params):
 
         pool = NonDaemonPool()
+        results = []
         for task in params:
-            pool.apply_async(self.train, args=(task,))
+            results.append(pool.apply_async(self.train, args=(task,)))
         pool.close()
         pool.join()
+
+        results = [r.get() for r in results]
+
 
     def optimize(self, optimizer: ParamOptimizer):
         params = optimizer.search_grid
