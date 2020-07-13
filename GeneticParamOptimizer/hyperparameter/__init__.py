@@ -14,8 +14,16 @@ from GeneticParamOptimizer.hyperparameter.optimizers import (
 )
 
 from GeneticParamOptimizer.hyperparameter.parameters import (
-    Parameter,
-    Budget
+    Budget,
+    OptimizationValue,
+    ParameterOptimizer,
+    ParameterModelTrainer,
+    ParameterTraining,
+    ParameterTransformerDocumentEmbeddings,
+    ParameterDocumentPoolEmbeddings,
+    ParameterDocumentRNNEmbeddings,
+    ParameterSequenceTagger,
+    ParameterTextClassifier
 )
 
 from GeneticParamOptimizer.hyperparameter.utils import (

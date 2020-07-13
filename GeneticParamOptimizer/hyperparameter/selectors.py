@@ -93,17 +93,15 @@ class TextClassificationParamSelector(ParamSelector):
             corpus: Corpus,
             multi_label: bool,
             base_path: Union[str, Path],
-            document_embedding_type: str,
-            evaluation_metric: EvaluationMetric = EvaluationMetric.MICRO_F1_SCORE,
-            optimization_value: OptimizationValue = OptimizationValue.DEV_LOSS,
+            optimizer: ParamOptimizer,
             max_epochs: int = 50,
     ):
         super().__init__(
             corpus,
             base_path,
-            evaluation_metric,
-            optimization_value,
-            max_epochs
+            evaluation_metric=optimizer.evaluation_metric["metric"],
+            optimization_value=optimizer.optimization_value["value"],
+            max_epochs=max_epochs
         )
 
         self.multi_label = multi_label
@@ -116,7 +114,7 @@ class TextClassificationParamSelector(ParamSelector):
                 key: params[key] for key, value in params.items() if key in DOCUMENT_RNN_EMBEDDING_PARAMETERS
             }
             document_embedding = DocumentRNNEmbeddings(**embedding_params)
-        else:
+        elif self.document_embedding_type:
             embedding_params = {
                 key: params[key] for key, value in params.items() if key in DOCUMENT_POOL_EMBEDDING_PARAMETERS
             }
