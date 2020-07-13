@@ -19,7 +19,7 @@ class SearchSpace():
         self.budget[budget.value] = value
 
     def add_optimization_value(self, optimization_value: OptimizationValue):
-        self.optimization_metric["value"] = optimization_value.value
+        self.optimization_value = optimization_value.value
 
     def add_evaluation_metric(self, evaluation_metric: OptimizationValue):
-        self.evaluation_metric["metric"] = evaluation_metric.value
+        self.evaluation_metric = evaluation_metric.value

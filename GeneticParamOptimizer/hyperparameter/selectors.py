@@ -83,42 +83,52 @@ class ParamSelector():
         results = [r.get() for r in results]
 
 
-    def optimize(self, optimizer: ParamOptimizer):
-        params = optimizer.search_grid
+    def optimize(self):
+        params = self.optimizer.search_grid
         self._objective(params=params)
 
 class TextClassificationParamSelector(ParamSelector):
     def __init__(
             self,
             corpus: Corpus,
-            multi_label: bool,
             base_path: Union[str, Path],
             optimizer: ParamOptimizer,
+            multi_label: bool = False,
             max_epochs: int = 50,
     ):
         super().__init__(
             corpus,
             base_path,
-            evaluation_metric=optimizer.evaluation_metric["metric"],
-            optimization_value=optimizer.optimization_value["value"],
+            evaluation_metric=optimizer.evaluation_metric,
+            optimization_value=optimizer.optimization_value,
             max_epochs=max_epochs
         )
 
         self.multi_label = multi_label
-        self.document_embedding_type = document_embedding_type
+        if optimizer.parameters['document_embeddings'] != None:
+            self.document_embedding_type = optimizer.parameters['document_embeddings']
+        else:
+            raise Exception("Please provide a document embedding for text classification.")
         self.label_dictionary = corpus.make_label_dictionary()
 
     def _set_up_model(self, params: dict):
-        if self.document_embedding_type == "lstm":
+        if self.document_embedding_type == "DocumentRNNEmbeddings":
             embedding_params = {
                 key: params[key] for key, value in params.items() if key in DOCUMENT_RNN_EMBEDDING_PARAMETERS
             }
             document_embedding = DocumentRNNEmbeddings(**embedding_params)
-        elif self.document_embedding_type:
+        elif self.document_embedding_type == "DocumentPoolEmbeddings":
             embedding_params = {
                 key: params[key] for key, value in params.items() if key in DOCUMENT_POOL_EMBEDDING_PARAMETERS
             }
             document_embedding = DocumentPoolEmbeddings(**embedding_params)
+        elif self.document_embedding_type == "TransformerDocumentEmbeddings":
+            embedding_params = {
+                key: params[key] for key, value in params.items() if key in DOCUMENT_TRANSFORMER_EMBEDDING_PARAMETERS
+            }
+            document_embedding = TransformerDocumentEmbeddings(**embedding_params)
+        else:
+            raise Exception("Please provide a flair document embedding class")
 
         text_classifier: TextClassifier = TextClassifier(
             label_dictionary=self.label_dictionary,

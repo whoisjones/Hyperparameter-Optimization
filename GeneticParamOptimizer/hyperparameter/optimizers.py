@@ -19,6 +19,8 @@ class ParamOptimizer():
         self.search_space = search_space
         self.budget = search_space.budget
         self.parameters = search_space.parameters
+        self.optimization_value = search_space.optimization_value
+        self.evaluation_metric = search_space.evaluation_metric
 
 
 class GridSearchOptimizer(ParamOptimizer):
