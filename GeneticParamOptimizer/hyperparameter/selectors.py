@@ -24,6 +24,7 @@ class ParamSelector():
             base_path: Union[str, Path],
             evaluation_metric: EvaluationMetric,
             optimization_value: OptimizationValue,
+            params: dict,
             max_epochs: int = 50,
     ):
         if type(base_path) is str:
@@ -34,6 +35,7 @@ class ParamSelector():
         self.evaluation_metric = evaluation_metric
         self.optimization_value = optimization_value
         self.max_epochs = max_epochs
+        self.params = params
 
     @abstractmethod
     def _set_up_model(self, params: dict) -> flair.nn.Model:
@@ -84,8 +86,7 @@ class ParamSelector():
 
 
     def optimize(self):
-        params = self.optimizer.search_grid
-        self._objective(params=params)
+        self._objective(params=self.params)
 
 class TextClassificationParamSelector(ParamSelector):
     def __init__(
@@ -101,6 +102,7 @@ class TextClassificationParamSelector(ParamSelector):
             base_path,
             evaluation_metric=optimizer.evaluation_metric,
             optimization_value=optimizer.optimization_value,
+            params=optimizer.search_grid,
             max_epochs=max_epochs
         )
 

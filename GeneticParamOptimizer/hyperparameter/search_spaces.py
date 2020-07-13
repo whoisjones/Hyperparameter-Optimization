@@ -5,8 +5,8 @@ class SearchSpace():
     def __init__(self):
         self.parameters = {}
         self.budget = {}
-        self.optimization_value = {}
-        self.evaluation_metric = {}
+        self.optimization_value = OptimizationValue.DEV_SCORE
+        self.evaluation_metric = EvaluationMetric.MICRO_F1_SCORE
 
     def add_parameter(self, parameter, func, **kwargs):
         if len(kwargs) != 1:

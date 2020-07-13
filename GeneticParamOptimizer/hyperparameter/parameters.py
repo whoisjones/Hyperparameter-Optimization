@@ -111,3 +111,7 @@ DOCUMENT_POOL_EMBEDDING_PARAMETERS = inspect.getfullargspec(DocumentPoolEmbeddin
 SEQUENCE_TAGGER_PARAMETERS = inspect.getfullargspec(SequenceTagger).args
 TRAINING_PARAMETERS = inspect.getfullargspec(ModelTrainer.train).args + OPTIMIZER_PARAMETERS
 MODEL_TRAINER_PARAMETERS = inspect.getfullargspec(ModelTrainer).args
+EVALULATION_METRICS = inspect.getfullargspec(EvaluationMetric).args
+OPTIMIZATION_VALUES = inspect.getfullargspec(OptimizationValue).args
+BUDGETS = inspect = inspect.getfullargspec(Budget).args
+GENERAL_PARAMETERS = BUDGETS + OPTIMIZATION_VALUES + EVALULATION_METRICS + TRAINING_PARAMETERS + MODEL_TRAINER_PARAMETERS

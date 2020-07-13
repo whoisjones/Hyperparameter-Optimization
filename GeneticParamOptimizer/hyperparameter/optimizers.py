@@ -1,5 +1,6 @@
 import itertools
 from random import shuffle
+from .parameters import *
 
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
 
@@ -16,11 +17,14 @@ class ParamOptimizer():
         :rtype: object
         :param search_space: the search space from which to get parameters and budget from
         """
-        self.search_space = search_space
-        self.budget = search_space.budget
-        self.parameters = search_space.parameters
-        self.optimization_value = search_space.optimization_value
-        self.evaluation_metric = search_space.evaluation_metric
+        try:
+            self.search_space = search_space
+            self.budget = search_space.budget
+            self.parameters = search_space.parameters
+            self.optimization_value = search_space.optimization_value
+            self.evaluation_metric = search_space.evaluation_metric
+        except:
+            raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
 
 class GridSearchOptimizer(ParamOptimizer):
@@ -156,6 +160,8 @@ class GeneticOptimizer(ParamOptimizer):
             for parameter_name, configuration in parameters.items():
                 parameter_value = self.get_parameter_from(**configuration)
                 individual[parameter_name] = parameter_value
+
+            #TODO adjust for all cases or filter for correct arguments
             search_grid.append(individual)
 
         return search_grid
@@ -170,8 +176,10 @@ class GeneticOptimizer(ParamOptimizer):
         func = kwargs.get('method')
         if kwargs.get('options') != None:
             parameter = func(kwargs.get('options'))
-        else:
+        elif kwargs.get('bounds') != None:
             parameter = func(kwargs.get('bounds'))
+        else:
+            raise Exception("Please provide either bounds or options as arguments to the search space depending on your function.")
         return parameter
 
     def get_fitness(self):
@@ -179,3 +187,23 @@ class GeneticOptimizer(ParamOptimizer):
 
     def setup_new_generation(self):
         pass
+
+
+def filter_parameter_based_on_embedding(individual):
+    filtered_individual = {}
+    try:
+        if individual["document_embeddings"].__name__ == "DocumentRNNEmbeddings":
+            filtered_individual = {
+                key: individual[key] for key, value in individual.items() if key in GENERAL_PARAMETERS + DOCUMENT_RNN_EMBEDDING_PARAMETERS
+            }
+        elif individual["document_embeddings"].__name__ == "TransformerDocumentEmbeddings":
+            filtered_individual = {
+                key: individual[key] for key, value in individual.items() if key in GENERAL_PARAMETERS + DOCUMENT_TRANSFORMER_EMBEDDING_PARAMETERS
+            }
+        elif individual["document_embeddings"].__name__ == "DocumentPoolEmbeddings":
+            filtered_individual = {
+                key: individual[key] for key, value in individual.items() if key in GENERAL_PARAMETERS + DOCUMENT_POOL_EMBEDDING_PARAMETERS
+            }
+        return filtered_individual
+    except:
+        raise Exception("Please provide document embeddings to the search space.")
