@@ -22,3 +22,5 @@ search_space.add_parameter(param.SequenceTagger.EMBEDDINGS, choice, options=[
 search_space.add_parameter(param.SequenceTagger.HIDDEN_SIZE, choice, options=[128, 256, 512])
 search_space.add_parameter(param.SequenceTagger.DROPOUT, uniform, bounds=[0, 0.5])
 search_space.add_parameter(param.SequenceTagger.RNN_LAYERS, choice, options=[2,3,4])
+
+optimizer = optimizers.GridSearchOptimizer(search_space=search_space)

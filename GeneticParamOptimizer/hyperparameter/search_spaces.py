@@ -33,6 +33,9 @@ class TextClassifierSearchSpace(SearchSpace):
         if len(kwargs) != 1 and not "options" in kwargs and not "bounds" in kwargs:
             raise Exception("Please provide either options or bounds depending on your function.")
 
+        if not self.parameters and parameter.name != "DOCUMENT_EMBEDDINGS":
+            raise Exception("Please provide first the document embeddings in order to assign model specific attributes")
+
         if parameter.name == "DOCUMENT_EMBEDDINGS":
             self._add_document_embeddings(parameter, func, **kwargs)
         else:
