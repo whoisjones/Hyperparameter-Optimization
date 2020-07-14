@@ -1,2 +1,2 @@
 # Hyperparameter-Optimization
-Hyperparameter optimization using evolutionary algorithms
+Deep learning hyperparameter optimization for downstream NLP tasks using evolutionary algorithms
