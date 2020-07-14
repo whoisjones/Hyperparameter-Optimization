@@ -17,13 +17,13 @@ class ParamOptimizer():
         :rtype: object
         :param search_space: the search space from which to get parameters and budget from
         """
-        try:
-            self.budget = search_space.budget
-            self.parameters = search_space.parameters
-            self.optimization_value = search_space.optimization_value
-            self.evaluation_metric = search_space.evaluation_metric
-        except:
+        if not all([search_space.budget, search_space.parameters, search_space.optimization_value, search_space.evaluation_metric]):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
+
+        self.budget = search_space.budget
+        self.parameters = search_space.parameters
+        self.optimization_value = search_space.optimization_value
+        self.evaluation_metric = search_space.evaluation_metric
 
 
 class GridSearchOptimizer(ParamOptimizer):
@@ -45,9 +45,12 @@ class GridSearchOptimizer(ParamOptimizer):
             search_space
         )
 
-        self.search_grid = self.get_search_grid(search_space.parameters, shuffled)
+        if search_space.__class__.__name__ == "SequenceTaggerSearchSpace":
+            self.search_grid = self._get_search_grid(search_space.parameters, shuffled)
+        else:
+            self.search_grid = self._get_search_grid_from_nested_space(search_space.parameters, shuffled)
 
-    def get_search_grid(
+    def _get_search_grid(
             self,
             parameters : dict,
             shuffled : bool
@@ -90,6 +93,19 @@ class GridSearchOptimizer(ParamOptimizer):
             shuffle(grid)
 
         return grid
+
+    def _get_search_grid_from_nested_space(self, parameters, shuffled):
+
+        grid = []
+
+        for nested_key, nested_parameters in parameters.items():
+            grid.append(self._get_search_grid(nested_parameters, shuffled))
+        flat_grid = [item for subgrid in grid for item in subgrid]
+
+        if shuffled:
+            shuffle(flat_grid)
+
+        return flat_grid
 
 
 class RandomSearchOptimizer(GridSearchOptimizer):
@@ -134,27 +150,27 @@ class GeneticOptimizer(ParamOptimizer):
             search_space
         )
 
-        self.DNA_size = len(search_space.parameters)
         self.population_size = population_size
         self.cross_rate = cross_rate
         self.mutation_rate = mutation_rate
-        self.search_grid = self.get_search_grid(search_space.parameters, population_size)
+        if search_space.__class__.__name__ == "SequenceTaggerSearchSpace":
+            self.search_grid = self._get_search_grid(search_space.parameters)
+        else:
+            self.search_grid = self._get_search_grid_from_nested_space(search_space.parameters)
 
-    def get_search_grid(
+    def _get_search_grid(
             self,
             parameters : dict,
-            population_size : int,
     ):
         """
         returns a generation of parameter configurations
 
         :param parameters: a dict which contains parameters as keywords with its possible configurations as values
-        :param population_size: the size of individual configurations per generation
         :return: a list of configurations
         :rtype: list
         """
         search_grid = []
-        for idx in range(population_size):
+        for idx in range(self.population_size):
             individual = {}
             for parameter_name, configuration in parameters.items():
                 parameter_value = self.get_parameter_from(**configuration)
@@ -164,6 +180,18 @@ class GeneticOptimizer(ParamOptimizer):
             search_grid.append(individual)
 
         return search_grid
+
+    def _get_search_grid_from_nested_space(self, parameters):
+
+        grid = []
+
+        for nested_key, nested_parameters in parameters.items():
+            grid.append(self._get_search_grid(nested_parameters))
+        flat_grid = [item for subgrid in grid for item in subgrid]
+
+        shuffle(flat_grid)
+
+        return flat_grid
 
     def get_parameter_from(self, **kwargs):
         """

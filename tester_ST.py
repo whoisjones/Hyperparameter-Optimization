@@ -12,6 +12,10 @@ search_space = search_spaces.SequenceTaggerSearchSpace()
 
 search_space.add_tag_type("pos")
 
+search_space.add_budget(param.Budget.RUNS, 50)
+search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
+search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
+
 search_space.add_parameter(param.SequenceTagger.EMBEDDINGS, choice, options=[
                                                                             [WordEmbeddings('glove')],
                                                                             [WordEmbeddings('en')],

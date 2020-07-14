@@ -45,20 +45,23 @@ class TextClassifierSearchSpace(SearchSpace):
     def _add_document_embeddings(self, parameter, func, options):
         try:
             for embedding in options:
-                self.parameters[embedding.__name__] = {parameter.value: {"options": embedding, "method": func}}
+                self.parameters[embedding.__name__] = {parameter.value: {"options": [embedding], "method": func}}
         except:
             raise Exception("Document embeddings only takes options as arguments")
 
 
     def _add_parameters(self, parameter, func, kwargs):
-        if parameter.__class__.__name__ in self.parameters:
+        if "Document" in parameter.__class__.__name__:
             self._add_embedding_specific_parameter(parameter, func, kwargs)
         else:
             self._add_universal_parameter(parameter, func, kwargs)
 
     def _add_embedding_specific_parameter(self, parameter, func, kwargs):
-        for key, values in kwargs.items():
-            self.parameters[parameter.__class__.__name__].update({parameter.value: {key: values, "method": func}})
+        try:
+            for key, values in kwargs.items():
+                self.parameters[parameter.__class__.__name__].update({parameter.value: {key: values, "method": func}})
+        except:
+            raise Exception("If your want to assign document embedding specific parameters, make sure it is included in the search space.")
 
     def _add_universal_parameter(self, parameter, func, kwargs):
         for embedding in self.parameters:

@@ -19,8 +19,8 @@ search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
 search_space.add_parameter(param.TextClassifier.DOCUMENT_EMBEDDINGS, choice, options=[DocumentRNNEmbeddings,
-                                                                                         TransformerDocumentEmbeddings,
-                                                                                         DocumentPoolEmbeddings])
+                                                                                      DocumentPoolEmbeddings,
+                                                                                      TransformerDocumentEmbeddings])
 search_space.add_parameter(param.ModelTrainer.LEARNING_RATE, choice, options=[0.01, 0.05, 0.1])
 search_space.add_parameter(param.ModelTrainer.MINI_BATCH_SIZE, choice, options=[16, 32])
 
@@ -38,7 +38,7 @@ search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, choice, op
 search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, choice, options=[32, 64])
 
 #Pass the search space to the optimizer object
-optimizer = optimizers.GridSearchOptimizer(search_space=search_space)
+optimizer = optimizers.GeneticOptimizer(search_space=search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus, base_path='resources/hyperopt', optimizer=optimizer)
