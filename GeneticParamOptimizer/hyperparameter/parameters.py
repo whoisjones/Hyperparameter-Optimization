@@ -1,7 +1,3 @@
-from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, TransformerDocumentEmbeddings
-from flair.models import SequenceTagger
-from flair.trainers import ModelTrainer
-import inspect
 from enum import Enum
 
 """
@@ -20,13 +16,12 @@ class OptimizationValue(Enum):
 
 class Budget(Enum):
     RUNS = "runs"
-    GENERATIONS = "generations"
     TIME_IN_H = "time_in_h"
 
 """
 Parameter for torch optimizer
 """
-class ParameterOptimizer(Enum):
+class Optimizer(Enum):
     MOMENTUM = "momentum"
     DAMPENING = "dampening"
     WEIGHT_DECAY = "weight_decay"
@@ -37,12 +32,10 @@ class ParameterOptimizer(Enum):
 """
 Parameter for Model Trainer class und its function train()
 """
-class ParameterModelTrainer():
+class ModelTrainer(Enum):
     OPTIMIZER = "optimizer"
     EPOCH = "epoch"
     USE_TENSORBOARD = "use_tensorboard"
-
-class ParameterTraining():
     LEARNING_RATE = "learning_rate"
     MINI_BATCH_SIZE = "mini_batch_size"
     MINI_BATCH_CHUNK_SIZE = "mini_batch_chunk_size"
@@ -58,7 +51,7 @@ class ParameterTraining():
 """
 Parameter for Downstream Tasks
 """
-class ParameterSequenceTagger():
+class SequenceTagger(Enum):
     HIDDEN_SIZE = "hidden_size"
     EMBEDDINGS = "embeddings"
     USE_CRF = "use_crf"
@@ -71,14 +64,14 @@ class ParameterSequenceTagger():
     TRAIN_INITIAL_HIDDEN_STATE = "train_initial_hidden_state"
     BETA = "beta"
 
-class ParameterTextClassifier():
+class TextClassifier(Enum):
     DOCUMENT_EMBEDDINGS = "document_embeddings"
     BETA = "beta"
 
 """
 Parameter for text classification embeddings
 """
-class ParameterDocumentRNNEmbeddings():
+class DocumentRNNEmbeddings(Enum):
     EMBEDDINGS = "embeddings"
     HIDDEN_SIZE = "hidden_size"
     RNN_LAYERS = "rnn_layers"
@@ -91,27 +84,14 @@ class ParameterDocumentRNNEmbeddings():
     RNN_TYPE = "rnn_type"
     FINE_TUNE = "fine_tune"
 
-class ParameterDocumentPoolEmbeddings():
+class DocumentPoolEmbeddings(Enum):
     EMBEDDINGS = "embeddings"
     FINE_TUNE_MODE = "fine_tune_mode"
     POOLING = "pooling"
 
-class ParameterTransformerDocumentEmbeddings():
+class TransformerDocumentEmbeddings(Enum):
     MODEL = "model"
     FINE_TUNE = "fine_tune"
     BATCH_SIZE = "batch_size"
     LAYERS = "layers"
     USE_SCALER_MIX = "use_scalar_mix"
-
-
-OPTIMIZER_PARAMETERS = [param.value for param in ParameterOptimizer]
-DOCUMENT_TRANSFORMER_EMBEDDING_PARAMETERS = inspect.getfullargspec(TransformerDocumentEmbeddings).args
-DOCUMENT_RNN_EMBEDDING_PARAMETERS = inspect.getfullargspec(DocumentRNNEmbeddings).args
-DOCUMENT_POOL_EMBEDDING_PARAMETERS = inspect.getfullargspec(DocumentPoolEmbeddings).args
-SEQUENCE_TAGGER_PARAMETERS = inspect.getfullargspec(SequenceTagger).args
-TRAINING_PARAMETERS = inspect.getfullargspec(ModelTrainer.train).args + OPTIMIZER_PARAMETERS
-MODEL_TRAINER_PARAMETERS = inspect.getfullargspec(ModelTrainer).args
-EVALULATION_METRICS = inspect.getfullargspec(EvaluationMetric).args
-OPTIMIZATION_VALUES = inspect.getfullargspec(OptimizationValue).args
-BUDGETS = inspect = inspect.getfullargspec(Budget).args
-GENERAL_PARAMETERS = BUDGETS + OPTIMIZATION_VALUES + EVALULATION_METRICS + TRAINING_PARAMETERS + MODEL_TRAINER_PARAMETERS

@@ -18,7 +18,6 @@ class ParamOptimizer():
         :param search_space: the search space from which to get parameters and budget from
         """
         try:
-            self.search_space = search_space
             self.budget = search_space.budget
             self.parameters = search_space.parameters
             self.optimization_value = search_space.optimization_value

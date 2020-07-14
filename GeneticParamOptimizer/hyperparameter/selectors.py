@@ -8,7 +8,6 @@ from GeneticParamOptimizer.hyperparameter.parameters import *
 from GeneticParamOptimizer.hyperparameter.multiprocessor import NonDaemonPool
 
 import flair.nn
-from flair.datasets import *
 from flair.data import Corpus
 from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings
 from flair.models import TextClassifier
@@ -41,52 +40,23 @@ class ParamSelector():
     def _set_up_model(self, params: dict) -> flair.nn.Model:
         pass
 
-    def train(self, params):
-
-        corpus_class = eval(self.corpus_name)
-        corpus = corpus_class()
-
-        for sent in corpus.get_all_sentences():
-            sent.clear_embeddings()
-
-        model = self._set_up_model(params)
-
-        training_params = {
-            key: params[key] for key, value in params.items() if key in TRAINING_PARAMETERS
-        }
-        model_trainer_parameters = {
-            key: params[key] for key, value in params.items() if key in MODEL_TRAINER_PARAMETERS
-        }
-
-        trainer: ModelTrainer = ModelTrainer(
-            model, corpus, **model_trainer_parameters
-        )
-
-        path = Path(self.base_path) / str(datetime.now())
-
-        results = trainer.train(
-            path,
-            max_epochs=self.max_epochs,
-            param_selection_mode=True,
-            **training_params,
-        )
-
-        return results
+    def _train(self, params):
+        pass
 
     def _objective(self, params):
 
         pool = NonDaemonPool()
         results = []
         for task in params:
-            results.append(pool.apply_async(self.train, args=(task,)))
+            results.append(pool.apply_async(self._train, args=(task,)))
         pool.close()
         pool.join()
 
         results = [r.get() for r in results]
 
-
     def optimize(self):
         self._objective(params=self.params)
+
 
 class TextClassificationParamSelector(ParamSelector):
     def __init__(
@@ -139,6 +109,37 @@ class TextClassificationParamSelector(ParamSelector):
         )
 
         return text_classifier
+
+    def _train(self, params):
+        corpus_class = eval(self.corpus_name)
+        corpus = corpus_class()
+
+        for sent in corpus.get_all_sentences():
+            sent.clear_embeddings()
+
+        model = self._set_up_model(params)
+
+        training_params = {
+            key: params[key] for key, value in params.items() if key in TRAINING_PARAMETERS
+        }
+        model_trainer_parameters = {
+            key: params[key] for key, value in params.items() if key in MODEL_TRAINER_PARAMETERS
+        }
+
+        trainer: ModelTrainer = ModelTrainer(
+            model, corpus, **model_trainer_parameters
+        )
+
+        path = Path(self.base_path) / str(datetime.now())
+
+        results = trainer.train(
+            path,
+            max_epochs=self.max_epochs,
+            param_selection_mode=True,
+            **training_params,
+        )
+
+        return results
 
 #TODO: IMPLEMENT
 class SequenceTaggerParamSelector(ParamSelector):
