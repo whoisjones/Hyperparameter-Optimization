@@ -1,6 +1,7 @@
-import multiprocessing as mp
+import multiprocessing
+import multiprocessing.pool
 
-class NoDaemonProcess(mp.Process):
+class NoDaemonProcess(multiprocessing.Process):
     # make 'daemon' attribute always return False
     def _get_daemon(self):
         return False
@@ -8,5 +9,5 @@ class NoDaemonProcess(mp.Process):
         pass
     daemon = property(_get_daemon, _set_daemon)
 
-class NonDaemonPool(mp.pool.Pool):
+class NonDaemonPool(multiprocessing.pool.Pool):
     Process = NoDaemonProcess
