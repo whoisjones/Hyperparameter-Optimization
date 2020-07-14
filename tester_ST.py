@@ -1,0 +1,24 @@
+from GeneticParamOptimizer.hyperparameter import selectors, search_spaces, optimizers
+import GeneticParamOptimizer.hyperparameter.parameters as param
+from GeneticParamOptimizer.hyperparameter.utils import choice, uniform
+from flair.embeddings import WordEmbeddings, FlairEmbeddings
+
+from flair.data import Corpus
+from flair.datasets import UD_ENGLISH
+
+search_space = search_spaces.SequenceTaggerSearchSpace()
+
+#corpus: Corpus = UD_ENGLISH().downsample(0.1)
+
+search_space.add_tag_type("pos")
+
+search_space.add_parameter(param.SequenceTagger.EMBEDDINGS, choice, options=[
+                                                                            [WordEmbeddings('glove')],
+                                                                            [WordEmbeddings('en')],
+                                                                            [WordEmbeddings('glove'),
+                                                                             FlairEmbeddings('news-forward'),
+                                                                             FlairEmbeddings('news-backward')]
+                                                                            ])
+search_space.add_parameter(param.SequenceTagger.HIDDEN_SIZE, choice, options=[128, 256, 512])
+search_space.add_parameter(param.SequenceTagger.DROPOUT, uniform, bounds=[0, 0.5])
+search_space.add_parameter(param.SequenceTagger.RNN_LAYERS, choice, options=[2,3,4])

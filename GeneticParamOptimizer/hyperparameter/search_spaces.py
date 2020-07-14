@@ -1,6 +1,5 @@
 from abc import abstractmethod
-
-from .parameters import *
+from .parameters import Budget, EvaluationMetric, OptimizationValue
 
 class SearchSpace():
 
@@ -20,7 +19,7 @@ class SearchSpace():
     def add_optimization_value(self, optimization_value: OptimizationValue):
         self.optimization_value = optimization_value.value
 
-    def add_evaluation_metric(self, evaluation_metric: OptimizationValue):
+    def add_evaluation_metric(self, evaluation_metric: EvaluationMetric):
         self.evaluation_metric = evaluation_metric.value
 
 
@@ -67,3 +66,12 @@ class SequenceTaggerSearchSpace(SearchSpace):
 
     def __init__(self):
         super().__init__()
+
+        self.tag_type = ""
+
+    def add_tag_type(self, tag_type : str):
+        self.tag_type = tag_type
+
+    def add_parameter(self, parameter, func, **kwargs):
+        for key, values in kwargs.items():
+            self.parameters.update({parameter.value : {key: values, "method": func}})

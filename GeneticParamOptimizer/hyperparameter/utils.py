@@ -1,8 +1,8 @@
 import random
 import numpy as np
 
-def choice(parameters: list):
-    return random.choice(parameters)
+def choice(options: list):
+    return random.choice(options)
 
 def uniform(bounds: list):
     if len(bounds) != 2:
