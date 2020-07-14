@@ -29,27 +29,39 @@ class TextClassifierSearchSpace(SearchSpace):
     def __init__(self):
         super().__init__()
 
+
     def add_parameter(self, parameter, func, **kwargs):
         if len(kwargs) != 1 and not "options" in kwargs and not "bounds" in kwargs:
             raise Exception("Please provide either options or bounds depending on your function.")
 
         if parameter.name == "DOCUMENT_EMBEDDINGS":
-            try:
-                embeddings = kwargs['options']
-                for embedding in embeddings:
-                    self.parameters[embedding.__name__] = {parameter.value: embedding, "method": func}
-            except:
-                raise Exception("Document embeddings only takes options as arguments")
+            self._add_document_embeddings(parameter, func, **kwargs)
         else:
-            if parameter.__class__.__name__ in self.parameters:
-                for key, value in kwargs.items():
-                    self.paramters[parameter.value] = {key: value, "method": func}
-            else:
-                print("")
-                for embedding in self.parameters:
-                    for key, value in kwargs.items():
-                        self.parameters[embedding].update({parameter.value: value, "method": func})
+            self._add_parameters(parameter, func, kwargs)
 
+
+    def _add_document_embeddings(self, parameter, func, options):
+        try:
+            for embedding in options:
+                self.parameters[embedding.__name__] = {parameter.value: {"options": embedding, "method": func}}
+        except:
+            raise Exception("Document embeddings only takes options as arguments")
+
+
+    def _add_parameters(self, parameter, func, kwargs):
+        if parameter.__class__.__name__ in self.parameters:
+            self._add_embedding_specific_parameter(parameter, func, kwargs)
+        else:
+            self._add_universal_parameter(parameter, func, kwargs)
+
+    def _add_embedding_specific_parameter(self, parameter, func, kwargs):
+        for key, values in kwargs.items():
+            self.parameters[parameter.__class__.__name__].update({parameter.value: {key: values, "method": func}})
+
+    def _add_universal_parameter(self, parameter, func, kwargs):
+        for embedding in self.parameters:
+            for key, values in kwargs.items():
+                self.parameters[embedding].update({parameter.value: {key: values, "method": func}})
 
 class SequenceTaggerSearchSpace(SearchSpace):
 
