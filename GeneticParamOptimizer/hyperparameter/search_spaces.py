@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from .parameters import Budget, EvaluationMetric, OptimizationValue
+import time
 
 class SearchSpace():
 
@@ -14,7 +15,10 @@ class SearchSpace():
         pass
 
     def add_budget(self, budget: Budget, value):
-        self.budget[budget.value] = value
+        self.budget['type'] = budget.value
+        self.budget['amount'] = value
+        if budget.value == "time_in_h":
+            self.budget['start_time'] = time.time()
 
     def add_optimization_value(self, optimization_value: OptimizationValue):
         self.optimization_value = optimization_value.value

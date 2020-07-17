@@ -1,15 +1,19 @@
 from typing import Union
 from pathlib import Path
+import os
+import logging as log
 from abc import abstractmethod
 from datetime import datetime
+import time
 
 from GeneticParamOptimizer.hyperparameter.optimizers import ParamOptimizer
-from GeneticParamOptimizer.hyperparameter.parameters import *
 from GeneticParamOptimizer.hyperparameter.multiprocessor import NonDaemonPool
+from GeneticParamOptimizer.hyperparameter.helpers import *
 
 import flair.nn
 from flair.data import Corpus
-from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings
+from flair.datasets import *
+from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, WordEmbeddings
 from flair.models import TextClassifier
 from flair.training_utils import (
     EvaluationMetric
@@ -23,39 +27,66 @@ class ParamSelector():
             base_path: Union[str, Path],
             evaluation_metric: EvaluationMetric,
             optimization_value: OptimizationValue,
+            budget: Budget,
             params: dict,
-            max_epochs: int = 50,
+            optimizer_type: str,
+            max_epochs: int,
     ):
+        log.info('Initializing parameter selector...')
+
         if type(base_path) is str:
             base_path = Path(base_path)
 
-        self.corpus_name = corpus.__class__.__name__
+        self.corpus_name = corpus.__name__
         self.base_path = base_path
         self.evaluation_metric = evaluation_metric
         self.optimization_value = optimization_value
-        self.max_epochs = max_epochs
+        self.budget = budget
         self.params = params
+        self.optimizer_type = optimizer_type
+        self.max_epochs = max_epochs
 
     @abstractmethod
     def _set_up_model(self, params: dict) -> flair.nn.Model:
         pass
 
+    @abstractmethod
     def _train(self, params):
         pass
 
-    def _objective(self, params):
+    @abstractmethod
+    def _evaluate(self):
+        pass
 
-        pool = NonDaemonPool()
+    def _objective(self, params, parallel_processes):
         results = []
+        pool = NonDaemonPool(processes=parallel_processes)
         for task in params:
             results.append(pool.apply_async(self._train, args=(task,)))
         pool.close()
         pool.join()
 
-        results = [r.get() for r in results]
+        return [p.get() for p in results]
 
-    def optimize(self):
-        self._objective(params=self.params)
+    def optimize(self, parallel_processes : int = os.cpu_count()):
+        while self._is_not_used_up(self.budget):
+            self._objective(params=self.params, parallel_processes=parallel_processes)
+            
+
+    def _is_not_used_up(self, budget):
+
+        if budget['type'] == 'runs':
+            if budget['amount'] > 0:
+                self.budget['amount'] =- 1
+                return True
+            else:
+                return False
+
+        elif budget['type'] == 'time_in_h':
+            if time.time() - budget['start_time'] < budget['amount']:
+                return True
+            else:
+                False
 
 
 class TextClassificationParamSelector(ParamSelector):
@@ -72,38 +103,43 @@ class TextClassificationParamSelector(ParamSelector):
             base_path,
             evaluation_metric=optimizer.evaluation_metric,
             optimization_value=optimizer.optimization_value,
+            budget= optimizer.budget,
             params=optimizer.search_grid,
+            optimizer_type=optimizer.__class__.__name__,
             max_epochs=max_epochs
         )
 
         self.multi_label = multi_label
-        if optimizer.parameters['document_embeddings'] != None:
-            self.document_embedding_type = optimizer.parameters['document_embeddings']
-        else:
-            raise Exception("Please provide a document embedding for text classification.")
-        self.label_dictionary = corpus.make_label_dictionary()
 
-    def _set_up_model(self, params: dict):
-        if self.document_embedding_type == "DocumentRNNEmbeddings":
+    def _set_up_model(self, params: dict, label_dictionary : dict):
+
+        document_embedding = params['document_embeddings'].__name__
+        if document_embedding == "DocumentRNNEmbeddings":
             embedding_params = {
                 key: params[key] for key, value in params.items() if key in DOCUMENT_RNN_EMBEDDING_PARAMETERS
             }
+            embedding_params['embeddings'] = [WordEmbeddings(TokenEmbedding) if type(params['embeddings']) == list
+                                              else WordEmbeddings(params['embeddings']) for TokenEmbedding in params['embeddings']]
             document_embedding = DocumentRNNEmbeddings(**embedding_params)
-        elif self.document_embedding_type == "DocumentPoolEmbeddings":
+
+        elif document_embedding == "DocumentPoolEmbeddings":
             embedding_params = {
                 key: params[key] for key, value in params.items() if key in DOCUMENT_POOL_EMBEDDING_PARAMETERS
             }
+            embedding_params['embeddings'] = [WordEmbeddings(TokenEmbedding) for TokenEmbedding in params['embeddings']]
             document_embedding = DocumentPoolEmbeddings(**embedding_params)
-        elif self.document_embedding_type == "TransformerDocumentEmbeddings":
+
+        elif document_embedding == "TransformerDocumentEmbeddings":
             embedding_params = {
                 key: params[key] for key, value in params.items() if key in DOCUMENT_TRANSFORMER_EMBEDDING_PARAMETERS
             }
             document_embedding = TransformerDocumentEmbeddings(**embedding_params)
+
         else:
             raise Exception("Please provide a flair document embedding class")
 
         text_classifier: TextClassifier = TextClassifier(
-            label_dictionary=self.label_dictionary,
+            label_dictionary=label_dictionary,
             multi_label=self.multi_label,
             document_embeddings=document_embedding,
         )
@@ -111,19 +147,22 @@ class TextClassificationParamSelector(ParamSelector):
         return text_classifier
 
     def _train(self, params):
+
         corpus_class = eval(self.corpus_name)
         corpus = corpus_class()
+
+        label_dict = corpus.make_label_dictionary()
 
         for sent in corpus.get_all_sentences():
             sent.clear_embeddings()
 
-        model = self._set_up_model(params)
+        model = self._set_up_model(params, label_dict)
 
         training_params = {
             key: params[key] for key, value in params.items() if key in TRAINING_PARAMETERS
         }
         model_trainer_parameters = {
-            key: params[key] for key, value in params.items() if key in MODEL_TRAINER_PARAMETERS
+            key: params[key] for key, value in params.items() if key in MODEL_TRAINER_PARAMETERS and key != 'model'
         }
 
         trainer: ModelTrainer = ModelTrainer(
@@ -138,10 +177,14 @@ class TextClassificationParamSelector(ParamSelector):
             param_selection_mode=True,
             **training_params,
         )
+        if self.optimization_value == "score":
+            result = results['score']
+        else:
+            result = results['loss']
 
-        return results
+        return {'params':params,'result':result}
 
-#TODO: IMPLEMENT
+
 class SequenceTaggerParamSelector(ParamSelector):
     def __init__(
         self,

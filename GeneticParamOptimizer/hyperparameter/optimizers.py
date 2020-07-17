@@ -1,5 +1,7 @@
 import itertools
+from abc import abstractmethod
 from random import shuffle
+import logging as log
 from .parameters import *
 
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
@@ -20,10 +22,29 @@ class ParamOptimizer():
         if not all([search_space.budget, search_space.parameters, search_space.optimization_value, search_space.evaluation_metric]):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
+        log.info('Initializing optimizer...')
+
+        self.type = search_space.__class__.__name__
         self.budget = search_space.budget
         self.parameters = search_space.parameters
         self.optimization_value = search_space.optimization_value
         self.evaluation_metric = search_space.evaluation_metric
+
+        @abstractmethod
+        def _get_search_grid(self):
+            pass
+
+        @abstractmethod
+        def _get_TC_search_grid(self):
+            pass
+
+        @abstractmethod
+        def _get_ST_search_grid(self):
+            pass
+
+        @abstractmethod
+        def _get_individuals(self):
+            pass
 
 
 class GridSearchOptimizer(ParamOptimizer):
@@ -45,15 +66,13 @@ class GridSearchOptimizer(ParamOptimizer):
             search_space
         )
 
-        if search_space.__class__.__name__ == "SequenceTaggerSearchSpace":
-            self.search_grid = self._get_search_grid(search_space.parameters, shuffled)
-        else:
-            self.search_grid = self._get_search_grid_from_nested_space(search_space.parameters, shuffled)
+        self.search_grid = self._get_search_grid(search_space.parameters, shuffled, type=self.type)
 
     def _get_search_grid(
             self,
             parameters : dict,
-            shuffled : bool
+            shuffled : bool,
+            type : str,
     ):
         """
         Does the cartesian product of provided configurations.
@@ -64,6 +83,31 @@ class GridSearchOptimizer(ParamOptimizer):
         :rtype: list
         """
 
+        if type == "TextClassifierSearchSpace":
+            search_grid = self._get_TC_search_grid(parameters, shuffled)
+        elif type == "SequenceTaggerSearchSpace":
+            search_grid = self._get_ST_search_grid(parameters, shuffled)
+
+        return search_grid
+
+    def _get_TC_search_grid(self, parameters, shuffled):
+
+        grid = []
+
+        for nested_key, nested_parameters in parameters.items():
+            grid.append(self._get_individuals(nested_parameters, shuffled))
+        flat_grid = [item for subgrid in grid for item in subgrid]
+
+        if shuffled:
+            shuffle(flat_grid)
+
+        return flat_grid
+
+    def _get_ST_search_grid(self, parameters, shuffled):
+
+        return self._get_individuals(parameters, shuffled)
+
+    def _get_individuals(self, parameters, shuffled):
         parameter_options = []
         parameter_keys = []
 
@@ -93,19 +137,6 @@ class GridSearchOptimizer(ParamOptimizer):
             shuffle(grid)
 
         return grid
-
-    def _get_search_grid_from_nested_space(self, parameters, shuffled):
-
-        grid = []
-
-        for nested_key, nested_parameters in parameters.items():
-            grid.append(self._get_search_grid(nested_parameters, shuffled))
-        flat_grid = [item for subgrid in grid for item in subgrid]
-
-        if shuffled:
-            shuffle(flat_grid)
-
-        return flat_grid
 
 
 class RandomSearchOptimizer(GridSearchOptimizer):
@@ -153,14 +184,14 @@ class GeneticOptimizer(ParamOptimizer):
         self.population_size = population_size
         self.cross_rate = cross_rate
         self.mutation_rate = mutation_rate
-        if search_space.__class__.__name__ == "SequenceTaggerSearchSpace":
-            self.search_grid = self._get_search_grid(search_space.parameters)
-        else:
-            self.search_grid = self._get_search_grid_from_nested_space(search_space.parameters)
+
+        self.search_grid = self._get_search_grid(search_space.parameters, population_size, type=self.type)
 
     def _get_search_grid(
             self,
             parameters : dict,
+            population_size : int,
+            type: str,
     ):
         """
         returns a generation of parameter configurations
@@ -169,29 +200,42 @@ class GeneticOptimizer(ParamOptimizer):
         :return: a list of configurations
         :rtype: list
         """
-        search_grid = []
-        for idx in range(self.population_size):
-            individual = {}
-            for parameter_name, configuration in parameters.items():
-                parameter_value = self.get_parameter_from(**configuration)
-                individual[parameter_name] = parameter_value
+        if type == "TextClassifierSearchSpace":
+            return self._get_TC_search_grid(parameters, population_size)
+        elif type == "SequenceTaggerSearchSpace":
+            return self._get_ST_search_grid(parameters, population_size)
+        else:
+            raise Exception()
 
-            #TODO adjust for all cases or filter for correct arguments
-            search_grid.append(individual)
-
-        return search_grid
-
-    def _get_search_grid_from_nested_space(self, parameters):
+    def _get_TC_search_grid(self, parameters, population_size):
 
         grid = []
 
-        for nested_key, nested_parameters in parameters.items():
-            grid.append(self._get_search_grid(nested_parameters))
+        div = len(parameters)
+        nested_population_size = [population_size // div + (1 if x < population_size % div else 0)  for x in range (div)]
+
+        for (nested_key, nested_parameters), individuals_per_group in zip(parameters.items(), nested_population_size):
+            grid.append(self._get_individuals(nested_parameters, population_size=individuals_per_group))
         flat_grid = [item for subgrid in grid for item in subgrid]
 
         shuffle(flat_grid)
 
         return flat_grid
+
+    def _get_ST_search_grid(self, parameters, population_size):
+
+        return self._get_individuals(parameters, population_size)
+
+    def _get_individuals(self, parameters, population_size):
+        individuals = []
+        for idx in range(population_size):
+            individual = {}
+            for parameter_name, configuration in parameters.items():
+                parameter_value = self.get_parameter_from(**configuration)
+                individual[parameter_name] = parameter_value
+            individuals.append(individual)
+
+        return individuals
 
     def get_parameter_from(self, **kwargs):
         """
@@ -214,23 +258,3 @@ class GeneticOptimizer(ParamOptimizer):
 
     def setup_new_generation(self):
         pass
-
-
-def filter_parameter_based_on_embedding(individual):
-    filtered_individual = {}
-    try:
-        if individual["document_embeddings"].__name__ == "DocumentRNNEmbeddings":
-            filtered_individual = {
-                key: individual[key] for key, value in individual.items() if key in GENERAL_PARAMETERS + DOCUMENT_RNN_EMBEDDING_PARAMETERS
-            }
-        elif individual["document_embeddings"].__name__ == "TransformerDocumentEmbeddings":
-            filtered_individual = {
-                key: individual[key] for key, value in individual.items() if key in GENERAL_PARAMETERS + DOCUMENT_TRANSFORMER_EMBEDDING_PARAMETERS
-            }
-        elif individual["document_embeddings"].__name__ == "DocumentPoolEmbeddings":
-            filtered_individual = {
-                key: individual[key] for key, value in individual.items() if key in GENERAL_PARAMETERS + DOCUMENT_POOL_EMBEDDING_PARAMETERS
-            }
-        return filtered_individual
-    except:
-        raise Exception("Please provide document embeddings to the search space.")

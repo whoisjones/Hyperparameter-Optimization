@@ -3,9 +3,10 @@ import GeneticParamOptimizer.hyperparameter.parameters as param
 from GeneticParamOptimizer.hyperparameter.utils import choice, uniform
 from flair.embeddings import WordEmbeddings, DocumentPoolEmbeddings, DocumentRNNEmbeddings, TransformerDocumentEmbeddings
 from flair.datasets import TREC_6
+from torch.optim import SGD, Adam
 
 # 1.) Define your corpus
-#corpus = TREC_6()
+corpus = TREC_6
 
 # 2.) create an search space
 search_space = search_spaces.TextClassifierSearchSpace()
@@ -19,27 +20,29 @@ search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
 search_space.add_parameter(param.TextClassifier.DOCUMENT_EMBEDDINGS, choice, options=[DocumentRNNEmbeddings,
-                                                                                      DocumentPoolEmbeddings,
-                                                                                      TransformerDocumentEmbeddings])
+                                                                                      DocumentPoolEmbeddings])
+                                                                                      #TransformerDocumentEmbeddings])
 search_space.add_parameter(param.ModelTrainer.LEARNING_RATE, choice, options=[0.01, 0.05, 0.1])
 search_space.add_parameter(param.ModelTrainer.MINI_BATCH_SIZE, choice, options=[16, 32])
+search_space.add_parameter(param.ModelTrainer.OPTIMIZER, choice, options=[SGD, Adam])
+search_space.add_parameter(param.Optimizer.WEIGHT_DECAY, choice, options=[1e-2, 0])
 
 #Define parameters for document embeddings RNN
 search_space.add_parameter(param.DocumentRNNEmbeddings.HIDDEN_SIZE, choice, options=[128, 256, 512])
 search_space.add_parameter(param.DocumentRNNEmbeddings.DROPOUT, uniform, bounds=[0, 0.5])
-search_space.add_parameter(param.DocumentRNNEmbeddings.EMBEDDINGS, choice, options=[WordEmbeddings('glove'), WordEmbeddings('en')])
+search_space.add_parameter(param.DocumentRNNEmbeddings.WORD_EMBEDDINGS, choice, options=[['glove'], ['en'], ['en', 'glove']])
 
 #Define parameters for document embeddings Pool
-search_space.add_parameter(param.DocumentPoolEmbeddings.EMBEDDINGS, choice, options=[WordEmbeddings('glove'), WordEmbeddings('en')])
+search_space.add_parameter(param.DocumentPoolEmbeddings.WORD_EMBEDDINGS, choice, options=[['glove'], ['en'], ['en', 'glove']])
 search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, choice, options=['mean', 'max', 'min'])
 
 #Define parameters for Transformers
-search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, choice, options=["bert-based-uncased", "distilbert-base-uncased"])
-search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, choice, options=[32, 64])
+#search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, choice, options=["bert-base-uncased", "distilbert-base-uncased"])
+#search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, choice, options=[32, 64])
 
 #Pass the search space to the optimizer object
-optimizer = optimizers.GeneticOptimizer(search_space=search_space)
+optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=4)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
-param_selector = selectors.TextClassificationParamSelector(corpus=corpus, base_path='resources/hyperopt', optimizer=optimizer)
-param_selector.optimize()
+param_selector = selectors.TextClassificationParamSelector(corpus=corpus, base_path='resources/hyperopt', optimizer=optimizer, max_epochs=3)
+param_selector.optimize(parallel_processes=2)

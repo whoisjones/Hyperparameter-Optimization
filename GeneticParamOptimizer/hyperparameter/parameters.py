@@ -53,7 +53,7 @@ Parameter for Downstream Tasks
 """
 class SequenceTagger(Enum):
     HIDDEN_SIZE = "hidden_size"
-    EMBEDDINGS = "embeddings"
+    WORD_EMBEDDINGS = "embeddings"
     USE_CRF = "use_crf"
     USE_RNN = "use_rnn"
     RNN_LAYERS = "rnn_layers"
@@ -72,7 +72,7 @@ class TextClassifier(Enum):
 Parameter for text classification embeddings
 """
 class DocumentRNNEmbeddings(Enum):
-    EMBEDDINGS = "embeddings"
+    WORD_EMBEDDINGS = "embeddings"
     HIDDEN_SIZE = "hidden_size"
     RNN_LAYERS = "rnn_layers"
     REPROJECT_WORDS = "reproject_words"
@@ -85,7 +85,7 @@ class DocumentRNNEmbeddings(Enum):
     FINE_TUNE = "fine_tune"
 
 class DocumentPoolEmbeddings(Enum):
-    EMBEDDINGS = "embeddings"
+    WORD_EMBEDDINGS = "embeddings"
     FINE_TUNE_MODE = "fine_tune_mode"
     POOLING = "pooling"
 
