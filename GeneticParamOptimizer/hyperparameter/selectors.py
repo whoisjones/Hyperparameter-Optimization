@@ -32,7 +32,6 @@ class ParamSelector():
             optimizer_type: str,
             max_epochs: int,
     ):
-        log.info('Initializing parameter selector...')
 
         if type(base_path) is str:
             base_path = Path(base_path)
@@ -59,6 +58,7 @@ class ParamSelector():
         pass
 
     def _objective(self, params, parallel_processes):
+
         results = []
         pool = NonDaemonPool(processes=parallel_processes)
         for task in params:
@@ -69,15 +69,22 @@ class ParamSelector():
         return [p.get() for p in results]
 
     def optimize(self, parallel_processes : int = os.cpu_count()):
+        if self.optimizer_type in ["GridSearchOptimizer", "RandomSearchOptimizer"] and self.budget['type'] == "runs":
+            self.params = self.params[:self.budget['amount']]
+            self.budget = 1
+
         while self._is_not_used_up(self.budget):
-            self._objective(params=self.params, parallel_processes=parallel_processes)
-            
+            results = self._objective(params=self.params, parallel_processes=parallel_processes)
+            self._process_results(results)
 
-    def _is_not_used_up(self, budget):
 
+    def _is_not_used_up(
+            self,
+            budget,
+    ):
         if budget['type'] == 'runs':
             if budget['amount'] > 0:
-                self.budget['amount'] =- 1
+                self.budget['amount'] = self.budget['amount'] - 1
                 return True
             else:
                 return False
@@ -86,7 +93,15 @@ class ParamSelector():
             if time.time() - budget['start_time'] < budget['amount']:
                 return True
             else:
-                False
+                return False
+
+
+    def _process_results(self, results: list):
+
+        if self.__class__.__name__ == "TextClassificationParamSelector":
+            pass
+        elif self.__class__.__name__ == "SequenceTaggerParamSelector":
+            pass
 
 
 class TextClassificationParamSelector(ParamSelector):
@@ -96,7 +111,6 @@ class TextClassificationParamSelector(ParamSelector):
             base_path: Union[str, Path],
             optimizer: ParamOptimizer,
             multi_label: bool = False,
-            max_epochs: int = 50,
     ):
         super().__init__(
             corpus,
@@ -106,7 +120,7 @@ class TextClassificationParamSelector(ParamSelector):
             budget= optimizer.budget,
             params=optimizer.search_grid,
             optimizer_type=optimizer.__class__.__name__,
-            max_epochs=max_epochs
+            max_epochs=optimizer.max_epochs_training
         )
 
         self.multi_label = multi_label
@@ -178,11 +192,11 @@ class TextClassificationParamSelector(ParamSelector):
             **training_params,
         )
         if self.optimization_value == "score":
-            result = results['score']
+            result = results['test_score']
         else:
-            result = results['loss']
+            result = results['dev_loss_history'][-1]
 
-        return {'params':params,'result':result}
+        return {'result':result, 'params':params}
 
 
 class SequenceTaggerParamSelector(ParamSelector):

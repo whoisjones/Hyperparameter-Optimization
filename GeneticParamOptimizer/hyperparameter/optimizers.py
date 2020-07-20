@@ -29,6 +29,7 @@ class ParamOptimizer():
         self.parameters = search_space.parameters
         self.optimization_value = search_space.optimization_value
         self.evaluation_metric = search_space.evaluation_metric
+        self.max_epochs_training  = search_space.max_epochs_training
 
         @abstractmethod
         def _get_search_grid(self):

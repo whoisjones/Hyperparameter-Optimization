@@ -9,6 +9,7 @@ class SearchSpace():
         self.budget = {}
         self.optimization_value = {}
         self.evaluation_metric = {}
+        self.max_epochs_training = 50
 
     @abstractmethod
     def add_parameter(self, parameter, func, **kwargs):
@@ -25,6 +26,9 @@ class SearchSpace():
 
     def add_evaluation_metric(self, evaluation_metric: EvaluationMetric):
         self.evaluation_metric = evaluation_metric.value
+
+    def add_max_epochs_training(self, max_epochs: int):
+        self.max_epochs_training = max_epochs
 
 
 class TextClassifierSearchSpace(SearchSpace):

@@ -14,9 +14,10 @@ search_space = search_spaces.TextClassifierSearchSpace()
 # 3.) depending on your task add the respective parameters you want to optimize over
 
 #Define your budget and optmization metric
-search_space.add_budget(param.Budget.RUNS, 50)
+search_space.add_budget(param.Budget.RUNS, 4)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
+search_space.add_max_epochs_training(3)
 
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
 search_space.add_parameter(param.TextClassifier.DOCUMENT_EMBEDDINGS, choice, options=[DocumentRNNEmbeddings,
@@ -26,6 +27,7 @@ search_space.add_parameter(param.ModelTrainer.LEARNING_RATE, choice, options=[0.
 search_space.add_parameter(param.ModelTrainer.MINI_BATCH_SIZE, choice, options=[16, 32])
 search_space.add_parameter(param.ModelTrainer.OPTIMIZER, choice, options=[SGD, Adam])
 search_space.add_parameter(param.Optimizer.WEIGHT_DECAY, choice, options=[1e-2, 0])
+
 
 #Define parameters for document embeddings RNN
 search_space.add_parameter(param.DocumentRNNEmbeddings.HIDDEN_SIZE, choice, options=[128, 256, 512])
@@ -41,8 +43,8 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, choice, options
 #search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, choice, options=[32, 64])
 
 #Pass the search space to the optimizer object
-optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=4)
+optimizer = optimizers.GridSearchOptimizer(search_space=search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
-param_selector = selectors.TextClassificationParamSelector(corpus=corpus, base_path='resources/hyperopt', optimizer=optimizer, max_epochs=3)
+param_selector = selectors.TextClassificationParamSelector(corpus=corpus, base_path='resources/hyperopt', optimizer=optimizer)
 param_selector.optimize(parallel_processes=2)
