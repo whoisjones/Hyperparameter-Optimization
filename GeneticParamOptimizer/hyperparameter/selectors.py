@@ -1,12 +1,11 @@
 from typing import Union
 from pathlib import Path
 import os
-import logging as log
 from abc import abstractmethod
 from datetime import datetime
 import time
 
-from GeneticParamOptimizer.hyperparameter.optimizers import ParamOptimizer
+from GeneticParamOptimizer.hyperparameter.optimizers import *
 from GeneticParamOptimizer.hyperparameter.multiprocessor import NonDaemonPool
 from GeneticParamOptimizer.hyperparameter.helpers import *
 
@@ -30,6 +29,7 @@ class ParamSelector():
             budget: Budget,
             params: dict,
             optimizer_type: str,
+            optimizer: ParamOptimizer,
             max_epochs: int,
     ):
 
@@ -43,7 +43,9 @@ class ParamSelector():
         self.budget = budget
         self.params = params
         self.optimizer_type = optimizer_type
+        self.optimizer = optimizer
         self.max_epochs = max_epochs
+        self.best_config = {}
 
     @abstractmethod
     def _set_up_model(self, params: dict) -> flair.nn.Model:
@@ -57,6 +59,18 @@ class ParamSelector():
     def _evaluate(self):
         pass
 
+    @abstractmethod
+    def _process_results(self):
+        pass
+
+    def optimize(self, parallel_processes : int = os.cpu_count()):
+
+        while self._budget_is_not_used_up:
+            results = self._objective(params=self.params, parallel_processes=parallel_processes)
+            self._process_results(results)
+
+        print(self.best_config)
+
     def _objective(self, params, parallel_processes):
 
         results = []
@@ -68,40 +82,28 @@ class ParamSelector():
 
         return [p.get() for p in results]
 
-    def optimize(self, parallel_processes : int = os.cpu_count()):
-        if self.optimizer_type in ["GridSearchOptimizer", "RandomSearchOptimizer"] and self.budget['type'] == "runs":
+    @property
+    def _budget_is_not_used_up(self):
+
+        if self.optimizer_type in ["GridSearchOptimizer", "RandomSearchOptimizer"] \
+                and self.budget['type'] == "runs" \
+                and self.budget['amount'] > 0:
             self.params = self.params[:self.budget['amount']]
-            self.budget = 1
+            self.budget['amount'] = 0
+            return True
 
-        while self._is_not_used_up(self.budget):
-            results = self._objective(params=self.params, parallel_processes=parallel_processes)
-            self._process_results(results)
+        if self.budget['type'] == 'runs' \
+                and self.budget['amount'] > 0:
+            self.budget['amount'] = self.budget['amount'] - 1
+            return True
+        else:
+            return False
 
-
-    def _is_not_used_up(
-            self,
-            budget,
-    ):
-        if budget['type'] == 'runs':
-            if budget['amount'] > 0:
-                self.budget['amount'] = self.budget['amount'] - 1
-                return True
-            else:
-                return False
-
-        elif budget['type'] == 'time_in_h':
-            if time.time() - budget['start_time'] < budget['amount']:
-                return True
-            else:
-                return False
-
-
-    def _process_results(self, results: list):
-
-        if self.__class__.__name__ == "TextClassificationParamSelector":
-            pass
-        elif self.__class__.__name__ == "SequenceTaggerParamSelector":
-            pass
+        if self.budget['type'] == 'time_in_h' \
+                and time.time() - self.budget['start_time'] < self.budget['amount']:
+            return True
+        else:
+            return False
 
 
 class TextClassificationParamSelector(ParamSelector):
@@ -109,7 +111,7 @@ class TextClassificationParamSelector(ParamSelector):
             self,
             corpus: Corpus,
             base_path: Union[str, Path],
-            optimizer: ParamOptimizer,
+            optimizer,
             multi_label: bool = False,
     ):
         super().__init__(
@@ -120,6 +122,7 @@ class TextClassificationParamSelector(ParamSelector):
             budget= optimizer.budget,
             params=optimizer.search_grid,
             optimizer_type=optimizer.__class__.__name__,
+            optimizer=optimizer,
             max_epochs=optimizer.max_epochs_training
         )
 
@@ -198,6 +201,16 @@ class TextClassificationParamSelector(ParamSelector):
 
         return {'result':result, 'params':params}
 
+    def _process_results(self, results: list):
+
+        sorted_results = sorted(results, key=lambda k: k['result'], reverse=True)
+
+        if self.optimizer_type == "GeneticOptimizer":
+            self.optimizer._evolve(sorted_results)
+        elif self.optimizer_type in ["GridSearchOptimizer", "RandomSearchOptimizer"]:
+            sorted_results = sorted(results, key=lambda k: k['result'], reverse=True)
+            self.best_config = sorted_results[0]
+
 
 class SequenceTaggerParamSelector(ParamSelector):
     def __init__(
@@ -205,10 +218,7 @@ class SequenceTaggerParamSelector(ParamSelector):
         corpus: Corpus,
         tag_type: str,
         base_path: Union[str, Path],
-        max_epochs: int = 50,
-        evaluation_metric: EvaluationMetric = EvaluationMetric.MICRO_F1_SCORE,
-        training_runs: int = 1,
-        optimization_value: OptimizationValue = OptimizationValue.DEV_LOSS,
+        optimizer: Optimizer,
     ):
         """
         :param corpus: the corpus
@@ -222,10 +232,13 @@ class SequenceTaggerParamSelector(ParamSelector):
         super().__init__(
             corpus,
             base_path,
-            max_epochs,
-            evaluation_metric,
-            training_runs,
-            optimization_value,
+            evaluation_metric=optimizer.evaluation_metric,
+            optimization_value=optimizer.optimization_value,
+            budget=optimizer.budget,
+            params=optimizer.search_grid,
+            optimizer_type=optimizer.__class__.__name__,
+            optimizer=optimizer,
+            max_epochs=optimizer.max_epochs_training
         )
 
         self.tag_type = tag_type
@@ -242,3 +255,13 @@ class SequenceTaggerParamSelector(ParamSelector):
             **sequence_tagger_params,
         )
         return tagger
+
+    def _train(self):
+        pass
+
+    def _process_results(self, results: list):
+
+        if self.__class__.__name__ == "TextClassificationParamSelector":
+            pass
+        elif self.__class__.__name__ == "SequenceTaggerParamSelector":
+            pass

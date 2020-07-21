@@ -2,6 +2,7 @@ import itertools
 from abc import abstractmethod
 from random import shuffle
 import logging as log
+import numpy as np
 from .parameters import *
 
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
@@ -185,6 +186,7 @@ class GeneticOptimizer(ParamOptimizer):
         self.population_size = population_size
         self.cross_rate = cross_rate
         self.mutation_rate = mutation_rate
+        self.all_parameters = search_space.parameters
 
         self.search_grid = self._get_search_grid(search_space.parameters, population_size, type=self.type)
 
@@ -254,8 +256,27 @@ class GeneticOptimizer(ParamOptimizer):
             raise Exception("Please provide either bounds or options as arguments to the search space depending on your function.")
         return parameter
 
-    def get_fitness(self):
-        pass
+    def _evolve(self, current_population: list):
+        parent_population = np.array([índividual['params'] for índividual in current_population])
+        selected_population = self._select(current_population)
+        for parent in parent_population:
+            child = self._crossover(parent, selected_population)
+            child = self.mutate(child)
+            parent[:] = child
 
-    def setup_new_generation(self):
-        pass
+    def _select(self, current_population: list):
+        evo_probabilities = self._get_fitness(current_population)
+        return np.random.choice(current_population, size=self.population_size, replace=True, p=evo_probabilities)
+
+    def _get_fitness(self, current_population: list):
+        fitness = [individual['result'] for individual in current_population]
+        probabilities = fitness / (sum([x['result'] for x in current_population]))
+        return probabilities
+        print("moin")
+
+    def _crossover(self, parent, selected_population):
+        if np.random.rand() < self.cross_rate:
+            i_ = np.random.randint(0, self.population_size, size=1)  # select another individual from pop
+            cross_points = np.random.randint(0, 2, self.DNA_size).astype(np.bool)  # choose crossover points
+            parent[cross_points] = selected_population[i_, cross_points]  # mating and produce one child
+        return parent
