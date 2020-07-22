@@ -257,16 +257,29 @@ class GeneticOptimizer(ParamOptimizer):
         return parameter
 
     def _evolve(self, current_population: list):
-        parent_population = np.array([índividual['params'] for índividual in current_population])
+        parent_population = self._get_formatted_population(current_population)
         selected_population = self._select(current_population)
-        for parent in parent_population:
-            child = self._crossover(parent, selected_population)
-            child = self.mutate(child)
+        for child in selected_population:
+            child = self._crossover(child, selected_population)
+            child = self._mutate(child)
             parent[:] = child
+
+    def _get_formatted_population(self, current_population):
+        formatted = {}
+        for embedding in current_population:
+            embedding_key = embedding['params']['document_embeddings'].__name__
+            embedding_value = embedding['params']
+            if embedding_key in formatted:
+                formatted[embedding_key].append(embedding_value)
+            else:
+                formatted[embedding_key] = [embedding_value]
+        return formatted
+
 
     def _select(self, current_population: list):
         evo_probabilities = self._get_fitness(current_population)
         return np.random.choice(current_population, size=self.population_size, replace=True, p=evo_probabilities)
+
 
     def _get_fitness(self, current_population: list):
         fitness = [individual['result'] for individual in current_population]
@@ -274,9 +287,10 @@ class GeneticOptimizer(ParamOptimizer):
         return probabilities
         print("moin")
 
-    def _crossover(self, parent, selected_population):
+
+    def _crossover(self, child, parent_population):
         if np.random.rand() < self.cross_rate:
             i_ = np.random.randint(0, self.population_size, size=1)  # select another individual from pop
             cross_points = np.random.randint(0, 2, self.DNA_size).astype(np.bool)  # choose crossover points
-            parent[cross_points] = selected_population[i_, cross_points]  # mating and produce one child
-        return parent
+            child[cross_points] = parent_population[i_, cross_points]  # mating and produce one child
+        return child
