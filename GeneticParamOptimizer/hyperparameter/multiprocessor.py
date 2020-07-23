@@ -1,7 +1,7 @@
-import torch.multiprocessing
-import torch.multiprocessing.pool
+import multiprocessing
+import multiprocessing.pool
 
-class NoDaemonProcess(torch.multiprocessing.Process):
+class NoDaemonProcess(multiprocessing.Process):
     # make 'daemon' attribute always return False
     def _get_daemon(self):
         return False
@@ -9,5 +9,5 @@ class NoDaemonProcess(torch.multiprocessing.Process):
         pass
     daemon = property(_get_daemon, _set_daemon)
 
-class NonDaemonPool(torch.multiprocessing.pool.Pool):
+class NonDaemonPool(multiprocessing.pool.Pool):
     Process = NoDaemonProcess
