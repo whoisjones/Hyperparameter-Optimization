@@ -204,13 +204,12 @@ class TextClassificationParamSelector(ParamSelector):
     def _process_results(self, results: list):
 
         sorted_results = sorted(results, key=lambda k: k['result'], reverse=True)
+        self.best_config = sorted_results[0]
 
         if self.optimizer_type == "GeneticOptimizer":
-            self.optimizer._evolve(sorted_results)
-        elif self.optimizer_type in ["GridSearchOptimizer", "RandomSearchOptimizer"]:
-            sorted_results = sorted(results, key=lambda k: k['result'], reverse=True)
-            self.best_config = sorted_results[0]
+            self.params = self.optimizer._evolve(sorted_results)
 
+        return
 
 class SequenceTaggerParamSelector(ParamSelector):
     def __init__(

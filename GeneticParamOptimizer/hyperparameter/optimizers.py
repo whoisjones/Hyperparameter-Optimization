@@ -260,9 +260,12 @@ class GeneticOptimizer(ParamOptimizer):
     def _evolve(self, current_population: list):
         parent_population = self._get_formatted_population(current_population)
         selected_population = self._select(current_population)
+        new_generation = []
         for child in selected_population:
             child = self._crossover(child, parent_population)
             child = self._mutate(child)
+            new_generation.append(child)
+        return new_generation
 
     def _get_formatted_population(self, current_population: list):
         formatted = {}
@@ -301,4 +304,10 @@ class GeneticOptimizer(ParamOptimizer):
         return child
 
     def _mutate(self, child: dict):
-        pass
+        child_type = child['params']['document_embeddings'].__name__
+        for parameter in child['params']:
+            if np.random.rand() < self.mutation_rate:
+                func = self.all_parameters[child_type][parameter]['method']
+                child[parameter] = func(self.all_parameters[child_type][parameter]['options'])
+        return child
+
