@@ -3,6 +3,7 @@ from abc import abstractmethod
 from random import shuffle
 import logging as log
 import numpy as np
+from random import randrange
 from .parameters import *
 
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
@@ -260,11 +261,10 @@ class GeneticOptimizer(ParamOptimizer):
         parent_population = self._get_formatted_population(current_population)
         selected_population = self._select(current_population)
         for child in selected_population:
-            child = self._crossover(child, selected_population)
+            child = self._crossover(child, parent_population)
             child = self._mutate(child)
-            parent[:] = child
 
-    def _get_formatted_population(self, current_population):
+    def _get_formatted_population(self, current_population: list):
         formatted = {}
         for embedding in current_population:
             embedding_key = embedding['params']['document_embeddings'].__name__
@@ -285,12 +285,20 @@ class GeneticOptimizer(ParamOptimizer):
         fitness = [individual['result'] for individual in current_population]
         probabilities = fitness / (sum([x['result'] for x in current_population]))
         return probabilities
-        print("moin")
 
 
-    def _crossover(self, child, parent_population):
+    def _crossover(self, child: dict, parent_population: dict):
+        child_type = child['params']['document_embeddings'].__name__
+        population_size = len(parent_population[child_type])
+        DNA_size = len(child['params'])
         if np.random.rand() < self.cross_rate:
-            i_ = np.random.randint(0, self.population_size, size=1)  # select another individual from pop
-            cross_points = np.random.randint(0, 2, self.DNA_size).astype(np.bool)  # choose crossover points
-            child[cross_points] = parent_population[i_, cross_points]  # mating and produce one child
+            i_ = randrange(population_size)  # select another individual from pop
+            parent = parent_population[child_type][i_]
+            cross_points = np.random.randint(0, 2, DNA_size).astype(np.bool)  # choose crossover points
+            for (parameter, value), replace in zip(child['params'].items(), cross_points):
+                if replace:
+                    child['params'][parameter] = parent[parameter] # mating and produce one child
         return child
+
+    def _mutate(self, child: dict):
+        pass
