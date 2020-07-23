@@ -75,7 +75,7 @@ class ParamSelector():
     def _objective(self, params, parallel_processes):
 
         results = []
-        multiprocessing.set_start_method('spawn')
+        multiprocessing.set_start_method('spawn', force=True)
         pool = NonDaemonPool(processes=parallel_processes)
         for task in params:
             results.append(pool.apply_async(self._train, args=(task,)))
