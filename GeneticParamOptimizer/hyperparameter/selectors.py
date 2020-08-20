@@ -63,10 +63,13 @@ class ParamSelector():
     def _process_results(self):
         pass
 
-    def optimize(self, parallel_processes : int = os.cpu_count()):
+    def optimize(self, train_on_multiple_gpus : bool = False):
 
         while self._budget_is_not_used_up:
-            results = self._objective(params=self.params, parallel_processes=parallel_processes)
+            if train_on_multiple_gpus:
+                results = self._objective_distributed(self.params)
+            else:
+                results = self._objective(params=self.params)
             self._process_results(results)
 
         print(self.best_config)
@@ -74,13 +77,17 @@ class ParamSelector():
     def _objective(self, params, parallel_processes):
 
         results = []
-        pool = NonDaemonPool(processes=parallel_processes)
+
         for task in params:
             results.append(pool.apply_async(self._train, args=(task,)))
         pool.close()
         pool.join()
 
         return [p.get() for p in results]
+
+    def _objective_distributed(self, params):
+        #TODO to be implemented
+        pass
 
     @property
     def _budget_is_not_used_up(self):
