@@ -2,8 +2,39 @@ import time
 from enum import Enum
 from abc import abstractmethod
 
-from .utils import Func
+from .utils import func
 from .parameters import Budget, EvaluationMetric, OptimizationValue
+
+"""
+The Search Space object acts as a data object containing all configurations for the hyperparameter optimization.
+We currently support two types of downstream task for hyperparameter optimization:
+    Text Classification
+    Sequence Labeling
+    
+Steering parameters which have to bet set independent of downstream task:
+    Steering params:                        function to use:
+    A budget preventing a long runtime      add_budget()
+    A evaluation metric for training        add_evaluation_metric()
+    An optimization value for training      add_optimization_value()
+    Max epochs per training run             add_max_epochs_training() (default: 50)
+    
+For text classification, please first set document embeddings since you probably add document specific embeddings
+
+Add parameters like this:
+
+import GeneticParamOptimizer.hyperparameter.parameters as param
+from GeneticParamOptimizer.hyperparameter.utils import func
+
+search_space.add_parameter(param.[TYPE OF PARAMETER TO BE SET].[CONCRETE PARAMETER],
+                           func.[FUNCTION TO PICK FROM VALUE RANGE],
+                           options=[LIST OF PARAMETER VALUES] or range=[BOUNDS OF PARAMETER VALUES])
+
+Note following combinations of functions and type of parameter values are possible:
+
+    function:   value range argument:   explanation:
+    choice      options=[1,2,3]         choose from different options
+    uniform     bounds=[0, 0.5]         take a uniform sample between lower and upper bound
+"""
 
 class SearchSpace(object):
     """
@@ -25,7 +56,10 @@ class SearchSpace(object):
         self.max_epochs_training = 50
 
     @abstractmethod
-    def add_parameter(self, parameter, func, **kwargs):
+    def add_parameter(self,
+                      parameter: Enum,
+                      func: func,
+                      **kwargs):
         """
         Adds single parameter configuration to search space. Overwritten by child class.
         :param parameter: passed
@@ -35,7 +69,9 @@ class SearchSpace(object):
         """
         pass
 
-    def add_budget(self, budget: Budget, value):
+    def add_budget(self,
+                   budget: Budget,
+                   value):
         """
         Adds a budget for the entire hyperparameter optimization.
         :param budget: Type of budget which is going to be used
@@ -71,7 +107,7 @@ class SearchSpace(object):
         """
         self.max_epochs_training = max_epochs
 
-    def _check_function_param_match(self, **kwargs):
+    def _check_function_param_match(self, kwargs):
         """
         Checks whether options or bounds are provided as value search space.
         :param kwargs:
@@ -82,7 +118,12 @@ class SearchSpace(object):
                 not "bounds" in kwargs:
             raise Exception("Please provide either options or bounds depending on your function.")
 
-    def _check_document_embeddings_are_set(self, parameter):
+    def _check_document_embeddings_are_set(self, parameter: Enum):
+        """
+        Checks whether Document Embeddings have been. They need to come first in order to assign Document specific parameters.
+        :param parameter: Parameter to be set
+        :return: None
+        """
         if not self.parameters and parameter.name != "DOCUMENT_EMBEDDINGS":
             raise Exception("Please provide first the document embeddings in order to assign model specific attributes")
 
@@ -98,7 +139,10 @@ class TextClassifierSearchSpace(SearchSpace):
     def __init__(self):
         super().__init__()
 
-    def add_parameter(self, parameter: Enum, func: Func, **kwargs):
+    def add_parameter(self,
+                      parameter: Enum,
+                      func: func,
+                      **kwargs):
         """
         Adds configuration for a single parameter to the search space.
         :param parameter: Type of parameter
@@ -118,13 +162,16 @@ class TextClassifierSearchSpace(SearchSpace):
             self._add_parameters(parameter, func, kwargs)
 
 
-    def _add_document_embeddings(self, parameter, func, options):
+    def _add_document_embeddings(self,
+                                 parameter: Enum,
+                                 func: func,
+                                 options):
         """
         Adds document embeddings to search space.
         :param parameter: Document Embedding to be set
-        :param func:
-        :param options:
-        :return:
+        :param func: Function to pick from value range
+        :param options: Value range
+        :return: None
         """
         try:
             for embedding in options:
@@ -133,25 +180,61 @@ class TextClassifierSearchSpace(SearchSpace):
             raise Exception("Document embeddings only takes options as arguments")
 
 
-    def _add_parameters(self, parameter, func, kwargs):
+    def _add_parameters(self,
+                        parameter: Enum,
+                        func: func,
+                        kwargs):
+        """
+        Wrapper function to add document embedding specific parameter or universal parameter
+        :param parameter: Parameter to be set
+        :param func: Function to pick from value range
+        :param kwargs: Value range
+        :return: None
+        """
         if "Document" in parameter.__class__.__name__:
             self._add_embedding_specific_parameter(parameter, func, kwargs)
         else:
             self._add_universal_parameter(parameter, func, kwargs)
 
-    def _add_embedding_specific_parameter(self, parameter, func, kwargs):
+    def _add_embedding_specific_parameter(self,
+                                          parameter: Enum,
+                                          func: func,
+                                          kwargs):
+        """
+        Adds a document embedding specific parameter.
+        :param parameter: Parameter to be set
+        :param func: Function to pick from value range
+        :param kwargs: Value range
+        :return: None
+        """
         try:
             for key, values in kwargs.items():
                 self.parameters[parameter.__class__.__name__].update({parameter.value: {key: values, "method": func}})
         except:
             raise Exception("If your want to assign document embedding specific parameters, make sure it is included in the search space.")
 
-    def _add_universal_parameter(self, parameter, func, kwargs):
+    def _add_universal_parameter(self,
+                                 parameter: Enum,
+                                 func: func,
+                                 kwargs):
+        """
+        Adds a universal training parameter independent from the document embeddings
+        :param parameter: Parameter to be set
+        :param func: Function to pick from value range
+        :param kwargs: Value range
+        :return: None
+        """
         for embedding in self.parameters:
             for key, values in kwargs.items():
                 self.parameters[embedding].update({parameter.value: {key: values, "method": func}})
 
 class SequenceTaggerSearchSpace(SearchSpace):
+    """
+    Search space for the sequence tagging downstream task
+
+    Attributes:
+        tag_type    Type of sequence labels
+    """
 
     def __init__(self):
         super().__init__()
@@ -159,8 +242,23 @@ class SequenceTaggerSearchSpace(SearchSpace):
         self.tag_type = ""
 
     def add_tag_type(self, tag_type : str):
+        """
+        Adds the tag type to the search space object
+        :param tag_type: Tag type from corpus
+        :return: None
+        """
         self.tag_type = tag_type
 
-    def add_parameter(self, parameter, func, **kwargs):
+    def add_parameter(self,
+                      parameter: Enum,
+                      func: func,
+                      **kwargs):
+        """
+        Adds parameter to the
+        :param parameter:
+        :param func:
+        :param kwargs:
+        :return:
+        """
         for key, values in kwargs.items():
             self.parameters.update({parameter.value : {key: values, "method": func}})
