@@ -48,12 +48,13 @@ class SearchSpace(object):
         max_epochs_training max. number of iterations per training for a single configuration
     """
 
-    def __init__(self):
+    def __init__(self, document_embedding_specific: bool):
         self.parameters = {}
         self.budget = {}
         self.optimization_value = {}
         self.evaluation_metric = {}
         self.max_epochs_training = 50
+        self.document_embedding_specific = document_embedding_specific
 
     @abstractmethod
     def add_parameter(self,
@@ -124,8 +125,16 @@ class SearchSpace(object):
         :param parameter: Parameter to be set
         :return: None
         """
+        if self.document_embedding_specific == False:
+            print("Warning: You can only check for search spaces which have document embeddings specific parameters.")
+            return
+
         if not self.parameters and parameter.name != "DOCUMENT_EMBEDDINGS":
             raise Exception("Please provide first the document embeddings in order to assign model specific attributes")
+
+    def _check_mandatory_parameters_are_set(self):
+        if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric]):
+            raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
 
 class TextClassifierSearchSpace(SearchSpace):
@@ -137,7 +146,9 @@ class TextClassifierSearchSpace(SearchSpace):
     """
 
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            document_embedding_specific=True
+        )
 
     def add_parameter(self,
                       parameter: Enum,
@@ -228,6 +239,7 @@ class TextClassifierSearchSpace(SearchSpace):
             for key, values in kwargs.items():
                 self.parameters[embedding].update({parameter.value: {key: values, "method": func}})
 
+
 class SequenceTaggerSearchSpace(SearchSpace):
     """
     Search space for the sequence tagging downstream task
@@ -237,7 +249,9 @@ class SequenceTaggerSearchSpace(SearchSpace):
     """
 
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            document_embedding_specific=False
+        )
 
         self.tag_type = ""
 

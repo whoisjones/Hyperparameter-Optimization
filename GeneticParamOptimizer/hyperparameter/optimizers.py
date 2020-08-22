@@ -1,6 +1,6 @@
 import itertools
 from abc import abstractmethod
-from random import shuffle
+import random
 import logging as log
 import numpy as np
 from random import randrange
@@ -9,7 +9,12 @@ from .parameters import *
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
 
 class ParamOptimizer():
-    """Parent class for all hyperparameter optimizers."""
+    """
+    Parent class for all hyperparameter optimizers.
+
+    Attributes:
+        search_space: Search Space object
+    """
 
     def __init__(
             self,
@@ -21,10 +26,7 @@ class ParamOptimizer():
         :rtype: object
         :param search_space: the search space from which to get parameters and budget from
         """
-        if not all([search_space.budget, search_space.parameters, search_space.optimization_value, search_space.evaluation_metric]):
-            raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
-
-        log.info('Initializing optimizer...')
+        search_space._check_mandatory_parameters_are_set()
 
         self.type = search_space.__class__.__name__
         self.budget = search_space.budget
@@ -33,20 +35,25 @@ class ParamOptimizer():
         self.evaluation_metric = search_space.evaluation_metric
         self.max_epochs_training  = search_space.max_epochs_training
 
+        #TODO rename
         @abstractmethod
-        def _get_search_grid(self):
+        #Wrapper function to get configurations
+        def _get_configurations(self):
             pass
 
         @abstractmethod
-        def _get_TC_search_grid(self):
+        # If there are document embedding specific parameters
+        def _get_embedding_specific_configurations(self):
             pass
 
         @abstractmethod
-        def _get_ST_search_grid(self):
+        # For standard parameters without document embeddings
+        def _get_standard_configurations(self):
             pass
 
         @abstractmethod
-        def _get_individuals(self):
+        # returns all configurations for one embedding (either 1 document embedding or all parameter)
+        def _get_configurations_for_single_embedding(self):
             pass
 
 
@@ -56,7 +63,7 @@ class GridSearchOptimizer(ParamOptimizer):
     def __init__(
             self,
             search_space: SearchSpace,
-            shuffled: bool = False,
+            shuffle: bool = False,
     ):
         """
         Creates a grid search object with all possible configurations from search space (cartesian product)
@@ -69,16 +76,19 @@ class GridSearchOptimizer(ParamOptimizer):
             search_space
         )
 
-        self.search_grid = self._get_search_grid(search_space.parameters, shuffled, type=self.type)
+        self.configurations = self._get_configurations(
+                                parameters=search_space.parameters,
+                                shuffle=shuffle,
+                                embedding_specific=search_space.document_embedding_specific)
 
-    def _get_search_grid(
+    def _get_configurations(
             self,
             parameters : dict,
-            shuffled : bool,
-            type : str,
+            shuffle : bool,
+            embedding_specific: bool
     ):
         """
-        Does the cartesian product of provided configurations.
+        Wrapper function which does the cartesian product of provided configurations depending on search space type
 
         :param shuffled: if true, a shuffled list of configurations is returned
         :param parameters: a dict which contains parameters as keywords with its possible configurations as values
@@ -86,61 +96,121 @@ class GridSearchOptimizer(ParamOptimizer):
         :rtype: list
         """
 
-        if type == "TextClassifierSearchSpace":
-            search_grid = self._get_TC_search_grid(parameters, shuffled)
-        elif type == "SequenceTaggerSearchSpace":
-            search_grid = self._get_ST_search_grid(parameters, shuffled)
+        if embedding_specific:
+            configurations = self._get_embedding_specific_configurations(parameters, shuffle)
+        else:
+            configurations = self._get_standard_configurations(parameters, shuffle)
 
-        return search_grid
+        return configurations
 
-    def _get_TC_search_grid(self, parameters, shuffled):
+    def _get_embedding_specific_configurations(self,
+                                     parameters: dict,
+                                     shuffle: bool):
+        """
+        Returns all configurations and check embedding specific parameters,
+        i.e. for the text classification downstream task
+        :param parameters: Dict containing all parameters as key value pairs
+        :param shuffled: Bool - if true, shuffle the grid
+        :return: list of all configurations
+        """
 
-        grid = []
+        all_configurations = []
+        for document_embedding, embedding_parameters in parameters.items():
+            all_configurations.append(self._get_configurations_for_single_embedding(embedding_parameters))
 
-        for nested_key, nested_parameters in parameters.items():
-            grid.append(self._get_individuals(nested_parameters, shuffled))
-        flat_grid = [item for subgrid in grid for item in subgrid]
+        all_configurations = self._flatten_grid(all_configurations)
 
-        if shuffled:
-            shuffle(flat_grid)
+        if shuffle:
+            random.shuffle(all_configurations)
 
-        return flat_grid
+        return all_configurations
 
-    def _get_ST_search_grid(self, parameters, shuffled):
+    def _get_standard_configurations(self, parameters: dict, shuffle: bool):
+        """
+        Returns all configurations for the sequence labeling downstream task
+        :param parameters: Dict containing all parameters as key value pairs
+        :param shuffled: Bool - if true, shuffle the grid
+        :return: list of all configurations
+        """
 
-        return self._get_individuals(parameters, shuffled)
+        all_configurations = self._get_configurations_for_single_embedding(parameters)
 
-    def _get_individuals(self, parameters, shuffled):
+        if shuffle:
+            random.shuffle(all_configurations)
+
+        return all_configurations
+
+    def _get_configurations_for_single_embedding(self, parameters: dict):
+        """
+        Returns the cartesian product for all configurations provided. Adds uniformly sampled data in the second step.
+        :param parameters:
+        :return:
+        """
+
+        option_parameters, uniformly_sampled_parameters = self._split_up_configurations(parameters)
+
+        all_configurations = self._get_cartesian_product(option_parameters)
+
+        # Since dicts are not sorted, uniformly sampled configurations have to be added later
+        if uniformly_sampled_parameters:
+            all_configurations = self._add_uniformly_sampled_parameters(uniformly_sampled_parameters, all_configurations)
+
+        return all_configurations
+
+    def _split_up_configurations(self, parameters: dict):
+        """
+        Splits the parameters based on whether to choose from options or take a uniform sample from a distribution.
+        :param parameters: Dict containing the parameters
+        :return: parameters from options as tuple, uniformly sampled parameters as dict
+        """
         parameter_options = []
         parameter_keys = []
+        uniformly_sampled_parameters = {}
 
-        bounds = {}  # store bounds for later since they cannot be part of cartesian product
-
-        # filter bounds
         for parameter_name, configuration in parameters.items():
             try:
                 parameter_options.append(configuration['options'])
                 parameter_keys.append(parameter_name)
             except:
-                bounds[parameter_name] = configuration
+                uniformly_sampled_parameters[parameter_name] = configuration
 
-        # get cartesian product from all choice options
-        grid = []
+        return (parameter_keys, parameter_options), uniformly_sampled_parameters
+
+    def _get_cartesian_product(self, parameters: tuple):
+        """
+        Returns the cartesian product of provided parameters. Takes two list (keys, values) in form of a tuple
+        as input.
+        :param parameters: tuple (list, list) containing keys and values of parameters
+        :return: list of all configurations
+        """
+        parameter_keys, parameter_options = parameters
+        all_configurations = []
         for configuration in itertools.product(*parameter_options):
-            grid.append(dict(zip(parameter_keys, configuration)))
+            all_configurations.append(dict(zip(parameter_keys, configuration)))
 
-        # if bounds are given in search_space, add them here
-        if bounds:
-            for item in grid:
-                for parameter_name, configuration in bounds.items():
-                    func = configuration['method']
-                    item[parameter_name] = func(configuration['bounds'])
+        return all_configurations
 
-        if shuffled:
-            shuffle(grid)
+    def _add_uniformly_sampled_parameters(self, bounds: dict, all_configurations: list):
+        """
+        Adds to each configuration a uniform sample of respective parameters.
+        :param bounds: dict containing the parameters which should be uniformly sampled
+        :param all_configurations: list of all configurations to which append a uniform sample parameter
+        :return: list of all configurations with a uniformly sampled parameter
+        """
+        for item in all_configurations:
+            for parameter_name, configuration in bounds.items():
+                func = configuration['method']
+                item[parameter_name] = func(configuration['bounds'])
 
-        return grid
+        return all_configurations
 
+    def _flatten_grid(self, all_configurations: list):
+        """
+        Flattens the list of all configurations for further processing.
+        :param all_configurations: list of all configurations
+        :return: flat list of all configurations
+        """
+        return [item for subgrid in all_configurations for item in subgrid]
 
 class RandomSearchOptimizer(GridSearchOptimizer):
     """A class for random search hyperparameter optimization"""
@@ -157,7 +227,7 @@ class RandomSearchOptimizer(GridSearchOptimizer):
         """
         super().__init__(
             search_space,
-            shuffled=True
+            shuffle=True
         )
 
 

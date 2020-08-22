@@ -127,7 +127,7 @@ class TextClassificationParamSelector(ParamSelector):
             evaluation_metric=optimizer.evaluation_metric,
             optimization_value=optimizer.optimization_value,
             budget= optimizer.budget,
-            params=optimizer.search_grid,
+            params=optimizer.configurations,
             optimizer_type=optimizer.__class__.__name__,
             optimizer=optimizer,
             max_epochs=optimizer.max_epochs_training
