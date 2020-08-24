@@ -1,6 +1,6 @@
 from GeneticParamOptimizer.hyperparameter import selectors, search_spaces, optimizers
 import GeneticParamOptimizer.hyperparameter.parameters as param
-from GeneticParamOptimizer.hyperparameter.utils import func
+from GeneticParamOptimizer.hyperparameter.sampling_functions import func
 from flair.embeddings import WordEmbeddings, DocumentPoolEmbeddings, DocumentRNNEmbeddings, TransformerDocumentEmbeddings
 from flair.datasets import TREC_6
 from torch.optim import SGD, Adam
@@ -17,7 +17,7 @@ search_space = search_spaces.TextClassifierSearchSpace()
 search_space.add_budget(param.Budget.RUNS, 4)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
-search_space.add_max_epochs_training(3)
+search_space.add_max_epochs_per_training(3)
 
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
 search_space.add_parameter(param.TextClassifier.DOCUMENT_EMBEDDINGS, func.choice, options=[DocumentRNNEmbeddings,
@@ -46,5 +46,8 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, func.choice, op
 optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=8)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
-param_selector = selectors.TextClassificationParamSelector(corpus=corpus, base_path='resources/hyperopt', optimizer=optimizer)
+param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
+                                                           base_path='resources/hyperopt',
+                                                           optimizer=optimizer,
+                                                           search_space=search_space)
 param_selector.optimize()

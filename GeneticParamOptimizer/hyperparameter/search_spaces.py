@@ -2,7 +2,7 @@ import time
 from enum import Enum
 from abc import abstractmethod
 
-from .utils import func
+from .sampling_functions import func
 from .parameters import Budget, EvaluationMetric, OptimizationValue
 
 """
@@ -41,11 +41,11 @@ class SearchSpace(object):
     Search space main class.
 
     Attributes:
-        parameters          Parameters of all configurations
-        budget              Budget for the hyperparameter optimization
-        optimization_value  Metric which will be optimized during training
-        evaluation_metric   Metric which is used for selecting the best configuration
-        max_epochs_training max. number of iterations per training for a single configuration
+        parameters                  Parameters of all configurations
+        budget                      Budget for the hyperparameter optimization
+        optimization_value          Metric which will be optimized during training
+        evaluation_metric           Metric which is used for selecting the best configuration
+        max_epochs_per_training     max. number of iterations per training for a single configuration
     """
 
     def __init__(self, document_embedding_specific: bool):
@@ -53,7 +53,7 @@ class SearchSpace(object):
         self.budget = {}
         self.optimization_value = {}
         self.evaluation_metric = {}
-        self.max_epochs_training = 50
+        self.max_epochs_per_training = 50
         self.document_embedding_specific = document_embedding_specific
 
     @abstractmethod
@@ -79,10 +79,7 @@ class SearchSpace(object):
         :param value: Budget value - depending on budget type
         :return: none
         """
-        self.budget['type'] = budget.value
-        self.budget['amount'] = value
-        if budget.value == "time_in_h":
-            self.budget['start_time'] = time.time()
+        self.budget[budget.value] = value
 
     def add_optimization_value(self, optimization_value: OptimizationValue):
         """
@@ -100,13 +97,13 @@ class SearchSpace(object):
         """
         self.evaluation_metric = evaluation_metric.value
 
-    def add_max_epochs_training(self, max_epochs: int):
+    def add_max_epochs_per_training(self, max_epochs: int):
         """
         Set max iteration per training for a single configuration
         :param max_epochs:
         :return:
         """
-        self.max_epochs_training = max_epochs
+        self.max_epochs_per_training = max_epochs
 
     def _check_function_param_match(self, kwargs):
         """
@@ -132,10 +129,18 @@ class SearchSpace(object):
         if not self.parameters and parameter.name != "DOCUMENT_EMBEDDINGS":
             raise Exception("Please provide first the document embeddings in order to assign model specific attributes")
 
-    def _check_mandatory_parameters_are_set(self):
-        if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric]):
+    def _check_mandatory_parameters_are_set(self, optimizer_type: str):
+        if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric]) \
+                and self._check_budget_type(optimizer_type):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
+    def _check_budget_type(self, optimizer_type):
+        if 'generations' in self.budget and optimizer_type == "GeneticOptimizer":
+            return True
+        elif 'runs' in self.budget or 'time_in_h' in self.budget:
+            return True
+        else:
+            return False
 
 class TextClassifierSearchSpace(SearchSpace):
     """

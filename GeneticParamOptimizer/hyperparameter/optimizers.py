@@ -8,7 +8,29 @@ from .parameters import *
 
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
 
-class ParamOptimizer():
+"""
+The ParamOptimizer object acts as the optimizer instance in flair's hyperparameter optimization.
+We are currently supporting three types of optimization:
+    GeneticOptimizer        using evolutionary algorithms
+    GridSearchOptimizer     standard grid search optimization
+    RandomSearchOptimizer   random order grid search optimization
+    
+The optimizers take an search space object as input, please see the documentation of search spaces for further
+information.
+
+Depending on the optimizer type the respective configurations of your hyperparameter optimization will be calculated.
+
+Apart from optimizer specific functions, if you want to add a new optimization procedure, following functions
+have to be overwritten:
+    _get_configurations()                           wrapper function which returns a list of all configurations.
+                                                    depending on whether embedding specific parameters are set,
+                                                    call respective functions.
+    _get_embedding_specific_configurations()        If we have embedding specific parameters.
+    _get_standard_configurations()                  If we don't have embedding specific parameters.
+    _get_configurations_for_single_embedding()      returns a list of configurations for one embedding.
+"""
+
+class ParamOptimizer(object):
     """
     Parent class for all hyperparameter optimizers.
 
@@ -26,35 +48,27 @@ class ParamOptimizer():
         :rtype: object
         :param search_space: the search space from which to get parameters and budget from
         """
-        search_space._check_mandatory_parameters_are_set()
+        search_space._check_mandatory_parameters_are_set(optimizer_type=self.__class__.__name__)
 
-        self.type = search_space.__class__.__name__
-        self.budget = search_space.budget
-        self.parameters = search_space.parameters
-        self.optimization_value = search_space.optimization_value
-        self.evaluation_metric = search_space.evaluation_metric
-        self.max_epochs_training  = search_space.max_epochs_training
+    @abstractmethod
+    #Wrapper function to get configurations
+    def _get_configurations(self):
+        pass
 
-        #TODO rename
-        @abstractmethod
-        #Wrapper function to get configurations
-        def _get_configurations(self):
-            pass
+    @abstractmethod
+    # If there are document embedding specific parameters
+    def _get_embedding_specific_configurations(self):
+        pass
 
-        @abstractmethod
-        # If there are document embedding specific parameters
-        def _get_embedding_specific_configurations(self):
-            pass
+    @abstractmethod
+    # For standard parameters without document embeddings
+    def _get_standard_configurations(self):
+        pass
 
-        @abstractmethod
-        # For standard parameters without document embeddings
-        def _get_standard_configurations(self):
-            pass
-
-        @abstractmethod
-        # returns all configurations for one embedding (either 1 document embedding or all parameter)
-        def _get_configurations_for_single_embedding(self):
-            pass
+    @abstractmethod
+    # returns all configurations for one embedding (either 1 document embedding or all parameter)
+    def _get_configurations_for_single_embedding(self):
+        pass
 
 
 class GridSearchOptimizer(ParamOptimizer):
@@ -210,7 +224,7 @@ class GridSearchOptimizer(ParamOptimizer):
         :param all_configurations: list of all configurations
         :return: flat list of all configurations
         """
-        return [item for subgrid in all_configurations for item in subgrid]
+        return [item for config in all_configurations for item in config]
 
 class RandomSearchOptimizer(GridSearchOptimizer):
     """A class for random search hyperparameter optimization"""

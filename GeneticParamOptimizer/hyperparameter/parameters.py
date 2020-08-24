@@ -16,6 +16,7 @@ class OptimizationValue(Enum):
 
 class Budget(Enum):
     RUNS = "runs"
+    GENERATIONS = "generations"
     TIME_IN_H = "time_in_h"
 
 """

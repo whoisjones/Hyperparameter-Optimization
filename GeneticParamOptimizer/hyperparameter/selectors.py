@@ -4,8 +4,10 @@ import os
 from abc import abstractmethod
 from datetime import datetime
 import time
+from torch.cuda import device_count
 
 from GeneticParamOptimizer.hyperparameter.optimizers import *
+from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
 from GeneticParamOptimizer.hyperparameter.multiprocessor import NonDaemonPool
 from GeneticParamOptimizer.hyperparameter.helpers import *
 
@@ -19,32 +21,25 @@ from flair.training_utils import (
 )
 
 class ParamSelector():
+    """
+    The ParamSelector selects the best configuration omitted by an optimizer object
+    """
 
     def __init__(
             self,
             corpus: Corpus,
             base_path: Union[str, Path],
-            evaluation_metric: EvaluationMetric,
-            optimization_value: OptimizationValue,
-            budget: Budget,
-            params: dict,
-            optimizer_type: str,
             optimizer: ParamOptimizer,
-            max_epochs: int,
+            search_space: SearchSpace,
     ):
 
         if type(base_path) is str:
             base_path = Path(base_path)
 
-        self.corpus_name = corpus.__name__
+        self.corpus = corpus
         self.base_path = base_path
-        self.evaluation_metric = evaluation_metric
-        self.optimization_value = optimization_value
-        self.budget = budget
-        self.params = params
-        self.optimizer_type = optimizer_type
         self.optimizer = optimizer
-        self.max_epochs = max_epochs
+        self.search_space = search_space
         self.best_config = {}
 
     @abstractmethod
@@ -65,16 +60,22 @@ class ParamSelector():
 
     def optimize(self, train_on_multiple_gpus : bool = False):
 
-        while self._budget_is_not_used_up:
-            if train_on_multiple_gpus:
-                results = self._objective_distributed(self.params)
+        while self._budget_is_not_used_up():
+            if train_on_multiple_gpus and self._sufficient_available_gpus():
+                results = self._perform_training_on_multiple_gpus(self.params)
             else:
-                results = self._objective(params=self.params)
+                results = self._perform_training(params=self.params)
             self._process_results(results)
 
         print(self.best_config)
 
-    def _objective(self, params, parallel_processes):
+    def _sufficient_available_gpus(self):
+        if device_count() > 1:
+            return True
+        else:
+            log.info("It is less than 2 GPUs available, switching to standard calculation.")
+
+    def _perform_training(self, params):
 
         results = []
 
@@ -85,12 +86,14 @@ class ParamSelector():
 
         return [p.get() for p in results]
 
-    def _objective_distributed(self, params):
+    def _perform_training_on_multiple_gpus(self, params):
         #TODO to be implemented
         pass
 
-    @property
+
     def _budget_is_not_used_up(self):
+
+        budget_type, budget_value = self._get_budget_information(self.search_space.budget)
 
         if self.optimizer_type in ["GridSearchOptimizer", "RandomSearchOptimizer"] \
                 and self.budget['type'] == "runs" \
@@ -112,25 +115,26 @@ class ParamSelector():
         else:
             return False
 
+    def _get_budget_information(self, budget: dict):
+        if len(budget) == 1:
+            for budget_type, value in budget.items():
+                return budget_type, value
+
 
 class TextClassificationParamSelector(ParamSelector):
     def __init__(
             self,
             corpus: Corpus,
             base_path: Union[str, Path],
-            optimizer,
+            optimizer: ParamOptimizer,
+            search_space: SearchSpace,
             multi_label: bool = False,
     ):
         super().__init__(
             corpus,
             base_path,
-            evaluation_metric=optimizer.evaluation_metric,
-            optimization_value=optimizer.optimization_value,
-            budget= optimizer.budget,
-            params=optimizer.configurations,
-            optimizer_type=optimizer.__class__.__name__,
             optimizer=optimizer,
-            max_epochs=optimizer.max_epochs_training
+            search_space=search_space,
         )
 
         self.multi_label = multi_label
@@ -222,9 +226,9 @@ class SequenceTaggerParamSelector(ParamSelector):
     def __init__(
         self,
         corpus: Corpus,
-        tag_type: str,
         base_path: Union[str, Path],
         optimizer: Optimizer,
+        search_space: SearchSpace,
     ):
         """
         :param corpus: the corpus
@@ -238,16 +242,11 @@ class SequenceTaggerParamSelector(ParamSelector):
         super().__init__(
             corpus,
             base_path,
-            evaluation_metric=optimizer.evaluation_metric,
-            optimization_value=optimizer.optimization_value,
-            budget=optimizer.budget,
-            params=optimizer.search_grid,
-            optimizer_type=optimizer.__class__.__name__,
             optimizer=optimizer,
-            max_epochs=optimizer.max_epochs_training
+            search_space=search_space
         )
 
-        self.tag_type = tag_type
+        self.tag_type = search_space.tag_type
         self.tag_dictionary = self.corpus.make_tag_dictionary(self.tag_type)
 
     def _set_up_model(self, params: dict):

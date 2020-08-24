@@ -1,6 +1,6 @@
 from GeneticParamOptimizer.hyperparameter import selectors, search_spaces, optimizers
 import GeneticParamOptimizer.hyperparameter.parameters as param
-from GeneticParamOptimizer.hyperparameter.utils import func
+from GeneticParamOptimizer.hyperparameter.sampling_functions import func
 from flair.embeddings import WordEmbeddings, FlairEmbeddings
 
 from flair.data import Corpus

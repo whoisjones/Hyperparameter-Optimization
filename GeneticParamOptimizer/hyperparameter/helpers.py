@@ -4,6 +4,8 @@ from flair.trainers import ModelTrainer
 from flair.embeddings import TransformerDocumentEmbeddings, DocumentRNNEmbeddings, DocumentPoolEmbeddings
 from flair.models import SequenceTagger, TextClassifier
 
+BUDGETS = [option.value for option in Budget]
+
 OPTIMIZER_PARAMETERS = [param.value for param in Optimizer]
 DOCUMENT_TRANSFORMER_EMBEDDING_PARAMETERS = inspect.getfullargspec(TransformerDocumentEmbeddings).args
 DOCUMENT_RNN_EMBEDDING_PARAMETERS = inspect.getfullargspec(DocumentRNNEmbeddings).args
