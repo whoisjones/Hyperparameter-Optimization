@@ -93,7 +93,7 @@ class GridSearchOptimizer(ParamOptimizer):
         :param shuffled: if true, a shuffled list of configurations is returned
         :param parameters: a dict which contains parameters as keywords with its possible configurations as values
         :return: a list of parameters configuration
-        :rtype: list
+        :rtype: list of all configurations
         """
 
         if embedding_specific:
@@ -237,7 +237,7 @@ class GeneticOptimizer(ParamOptimizer):
     def __init__(
             self,
             search_space: SearchSpace,
-            population_size: int = 32,
+            population_size: int = 8,
             cross_rate: float = 0.4,
             mutation_rate: float = 0.01,
     ):
@@ -257,63 +257,106 @@ class GeneticOptimizer(ParamOptimizer):
         self.population_size = population_size
         self.cross_rate = cross_rate
         self.mutation_rate = mutation_rate
-        self.all_parameters = search_space.parameters
 
-        self.search_grid = self._get_search_grid(search_space.parameters, population_size, type=self.type)
+        self.configurations = self._get_configurations(
+                                parameters=search_space.parameters,
+                                embedding_specific=search_space.document_embedding_specific)
 
-    def _get_search_grid(
+    def _get_configurations(
             self,
             parameters : dict,
-            population_size : int,
-            type: str,
+            embedding_specific: str,
     ):
         """
         returns a generation of parameter configurations
-
-        :param parameters: a dict which contains parameters as keywords with its possible configurations as values
-        :return: a list of configurations
-        :rtype: list
+        :param parameters: A dict containing all parameters
+        :param population_size: size of population per generation
+        :param embedding_specific: If true, document embedding specific parameters are provided (based on search space)
+        :return: A list of all configurations
         """
-        if type == "TextClassifierSearchSpace":
-            return self._get_TC_search_grid(parameters, population_size)
-        elif type == "SequenceTaggerSearchSpace":
-            return self._get_ST_search_grid(parameters, population_size)
+        if embedding_specific:
+            configurations = self._get_embedding_specific_configurations(parameters)
         else:
-            raise Exception()
+            configurations = self._get_standard_configurations(parameters)
 
-    def _get_TC_search_grid(self, parameters, population_size):
+        return configurations
 
-        grid = []
+    def _get_embedding_specific_configurations(self, parameters: dict):
+        """
+        Get all configurations for multiple (document) embedding type
+        :param parameters: A dict containing parameters for a single embedding
+        :param population_size: Size of population per generation
+        :return: A list of parameter configurations
+        """
 
-        div = len(parameters)
-        nested_population_size = [population_size // div + (1 if x < population_size % div else 0)  for x in range (div)]
+        amount_individuals_per_embedding = self._get_amount_of_individuals_per_embedding(len(parameters))
 
-        for (nested_key, nested_parameters), individuals_per_group in zip(parameters.items(), nested_population_size):
-            grid.append(self._get_individuals(nested_parameters, population_size=individuals_per_group))
-        flat_grid = [item for subgrid in grid for item in subgrid]
+        configurations = self._get_individuals_for_each_embedding(parameters, amount_individuals_per_embedding)
 
-        shuffle(flat_grid)
+        random.shuffle(configurations)
 
-        return flat_grid
+        return configurations
 
-    def _get_ST_search_grid(self, parameters, population_size):
+    def _get_standard_configurations(self, parameters: dict):
+        """
+        Get all configurations for single (document) embedding type
+        :param parameters: A dict containing parameters for a single embedding
+        :param population_size: Size of population per generation
+        :return: A list of parameter configurations
+        """
 
-        return self._get_individuals(parameters, population_size)
+        return self._get_configurations_per_single_embedding(parameters, self.population_size)
 
-    def _get_individuals(self, parameters, population_size):
+    def _get_configurations_per_single_embedding(self, parameters: dict, population_size: int):
+        """
+        Returns all configurations for one (document) embedding type
+        :param parameters: A dict containing parameters for a single embedding
+        :param population_size: Size of population per generation
+        :return: A list of parameter configurations
+        """
         individuals = []
         for idx in range(population_size):
             individual = {}
             for parameter_name, configuration in parameters.items():
-                parameter_value = self.get_parameter_from(**configuration)
+                parameter_value = self.get_formatted_parameter_from(**configuration)
                 individual[parameter_name] = parameter_value
             individuals.append(individual)
 
         return individuals
 
-    def get_parameter_from(self, **kwargs):
+    def _get_amount_of_individuals_per_embedding(self, length_of_different_embeddings: int) -> list:
         """
-        Helper function to extract either a choice from list or a parameter value from a uniform distribution
+        If multiple document embeddings, split initial population equally among all embedding types
+        :param length_of_different_embeddings:
+        :return: list of integers containing information about configurations per embedding
+        """
+        individuals_per_embedding = [self.population_size // length_of_different_embeddings +
+                                  (1 if x < self.population_size % length_of_different_embeddings else 0)
+                                  for x in range (length_of_different_embeddings)]
+
+        return individuals_per_embedding
+
+    def _get_individuals_for_each_embedding(self, parameters: dict, individuals_per_embedding: list):
+        """
+        Returns according to the embedding split, a list of parameter configurations
+        :param parameters: a dict containing the parameter value
+        :param individuals_per_embedding: list of ints how many individuals per embedding
+        :return:
+        """
+        configurations = []
+
+        for (nested_key, nested_parameters), individuals_per_group in zip(parameters.items(),
+                                                                          individuals_per_embedding):
+            configurations.append(
+                self._get_configurations_per_single_embedding(nested_parameters, population_size=individuals_per_group))
+
+        configurations = [item for embedding_type in configurations for item in embedding_type]
+
+        return configurations
+
+    def get_formatted_parameter_from(self, **kwargs):
+        """
+        Helper function to extract parameter value depending on provided function
 
         :param kwargs: a tuple of a function and values / bounds
         :return: float or int depending on function provided
@@ -328,6 +371,11 @@ class GeneticOptimizer(ParamOptimizer):
         return parameter
 
     def _evolve(self, current_population: list):
+        """
+        Evolve the current population based on selection, mutation and crossover
+        :param current_population: list contraining parameter configurations of current population
+        :return: List of configuration (next generation)
+        """
         parent_population = self._get_formatted_population(current_population)
         selected_population = self._select(current_population)
         new_generation = []
@@ -338,6 +386,11 @@ class GeneticOptimizer(ParamOptimizer):
         return new_generation
 
     def _get_formatted_population(self, current_population: list):
+        """
+        Puts the input list in a processable format
+        :param current_population: List of configurations
+        :return: Formatted list of configuration
+        """
         formatted = {}
         for embedding in current_population:
             embedding_key = embedding['params']['document_embeddings'].__name__
@@ -350,17 +403,34 @@ class GeneticOptimizer(ParamOptimizer):
 
 
     def _select(self, current_population: list):
+        """
+        Selects best fitting parameter configurations
+        :param current_population: List of current configurations / population
+        :return: List of best fitting individuals from current population
+        """
         evo_probabilities = self._get_fitness(current_population)
         return np.random.choice(current_population, size=self.population_size, replace=True, p=evo_probabilities)
 
 
     def _get_fitness(self, current_population: list):
+        """
+        Calculates the fitness of each individual (individual fitness / sum of all fitnesses)
+        :param current_population: list of all configurations
+        :return: survival probabilities for each individual
+        """
         fitness = [individual['result'] for individual in current_population]
         probabilities = fitness / (sum([x['result'] for x in current_population]))
         return probabilities
 
 
     def _crossover(self, child: dict, parent_population: dict):
+        """
+        Given the crossover rate, randomly select a individual (parent) from current population and crossover parameters
+        with child for next generation
+        :param child: dict for a single training configuration
+        :param parent_population: all selected individuals from previous generation
+        :return: child with crossover parameters
+        """
         child_type = child['params']['document_embeddings'].__name__
         population_size = len(parent_population[child_type])
         DNA_size = len(child['params'])
@@ -374,10 +444,15 @@ class GeneticOptimizer(ParamOptimizer):
         return child
 
     def _mutate(self, child: dict):
+        """
+        Given the mutation probability, randomly mutate a parameter from current child to a parameter
+        from all available parameter values
+        :param child: Dict containing all parameters for a training run
+        :return: mutated child
+        """
         child_type = child['params']['document_embeddings'].__name__
         for parameter in child['params']:
             if np.random.rand() < self.mutation_rate:
                 func = self.all_parameters[child_type][parameter]['method']
                 child[parameter] = func(self.all_parameters[child_type][parameter]['options'])
         return child
-

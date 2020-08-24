@@ -43,7 +43,7 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, func.choice, op
 #search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, choice, options=[32, 64])
 
 #Pass the search space to the optimizer object
-optimizer = optimizers.GridSearchOptimizer(search_space=search_space)
+optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=8)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus, base_path='resources/hyperopt', optimizer=optimizer)
