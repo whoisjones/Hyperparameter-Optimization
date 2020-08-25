@@ -81,6 +81,9 @@ class SearchSpace(object):
         """
         self.budget[budget.value] = value
 
+        if budget.value == "time_in_h":
+            self.start_time = time.time()
+
     def add_optimization_value(self, optimization_value: OptimizationValue):
         """
         Adds optimization value to the search space.

@@ -1,14 +1,15 @@
+import time
+import os
+import logging
+from datetime import datetime
+from operator import getitem
 from typing import Union
 from pathlib import Path
-import os
-from abc import abstractmethod
-from datetime import datetime
-import time
 from torch.cuda import device_count
+from abc import abstractmethod
 
 from GeneticParamOptimizer.hyperparameter.optimizers import *
 from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
-from GeneticParamOptimizer.hyperparameter.multiprocessor import NonDaemonPool
 from GeneticParamOptimizer.hyperparameter.helpers import *
 
 import flair.nn
@@ -19,6 +20,8 @@ from flair.models import TextClassifier
 from flair.training_utils import (
     EvaluationMetric
 )
+
+log = logging.getLogger("flair")
 
 class ParamSelector():
     """
@@ -40,7 +43,8 @@ class ParamSelector():
         self.base_path = base_path
         self.optimizer = optimizer
         self.search_space = search_space
-        self.best_config = {}
+        self.results = {}
+        self.current_run = 0
 
     @abstractmethod
     def _set_up_model(self, params: dict) -> flair.nn.Model:
@@ -50,75 +54,85 @@ class ParamSelector():
     def _train(self, params):
         pass
 
-    @abstractmethod
-    def _evaluate(self):
-        pass
-
-    @abstractmethod
-    def _process_results(self):
-        pass
-
     def optimize(self, train_on_multiple_gpus : bool = False):
-
         while self._budget_is_not_used_up():
+            current_configuration = self._get_current_configuration()
             if train_on_multiple_gpus and self._sufficient_available_gpus():
-                results = self._perform_training_on_multiple_gpus(self.params)
+                self._perform_training_on_multiple_gpus(current_configuration)
             else:
-                results = self._perform_training(params=self.params)
-            self._process_results(results)
+                self._perform_training(current_configuration)
 
-        print(self.best_config)
-
-    def _sufficient_available_gpus(self):
-        if device_count() > 1:
-            return True
-        else:
-            log.info("It is less than 2 GPUs available, switching to standard calculation.")
+        self._log_results()
 
     def _perform_training(self, params):
-
-        results = []
-
-        for task in params:
-            results.append(pool.apply_async(self._train, args=(task,)))
-        pool.close()
-        pool.join()
-
-        return [p.get() for p in results]
+        self.results[f"training-run-{self.current_run}"] = self._train(params)
 
     def _perform_training_on_multiple_gpus(self, params):
         #TODO to be implemented
         pass
 
-
     def _budget_is_not_used_up(self):
 
-        budget_type, budget_value = self._get_budget_information(self.search_space.budget)
+        budget_type = self._get_budget_type(self.search_space.budget)
 
-        if self.optimizer_type in ["GridSearchOptimizer", "RandomSearchOptimizer"] \
-                and self.budget['type'] == "runs" \
-                and self.budget['amount'] > 0:
-            self.params = self.params[:self.budget['amount']]
-            self.budget['amount'] = 0
-            return True
+        if budget_type == 'time_in_h':
+            return self._is_time_budget_left()
+        elif budget_type == 'runs':
+            return self._is_runs_budget_left()
+        elif budget_type == 'generations':
+            return self._is_generations_budget_left()
 
-        if self.budget['type'] == 'runs' \
-                and self.budget['amount'] > 0:
-            self.budget['amount'] = self.budget['amount'] - 1
-            return True
-        else:
-            return False
-
-        if self.budget['type'] == 'time_in_h' \
-                and time.time() - self.budget['start_time'] < self.budget['amount']:
-            return True
-        else:
-            return False
-
-    def _get_budget_information(self, budget: dict):
+    def _get_budget_type(self, budget: dict):
         if len(budget) == 1:
-            for budget_type, value in budget.items():
-                return budget_type, value
+            for budget_type in budget.keys():
+                return budget_type
+        else:
+            raise Exception('Budget has more than 1 parameter.')
+
+    def _is_time_budget_left(self):
+        already_running = datetime.fromtimestamp(time.time()) - datetime.fromtimestamp(self.search_space.start_time)
+        if (already_running.total_seconds()) / 3600 < self.search_space.budget['time_in_h']:
+            return True
+        else:
+            return False
+
+    def _is_runs_budget_left(self):
+        if self.search_space.budget['runs'] > 0:
+            self.search_space.budget['runs'] -= 1
+            return True
+        else:
+            return False
+
+    def _is_generations_budget_left(self):
+        if self.search_space.budget['generations'] > 0 \
+        and self.current_run % self.optimizer.population_size == 0:
+            self.search_space.budget['generations'] -= 1
+            return True
+        else:
+            return False
+
+    def _get_current_configuration(self):
+        current_configuration = self.optimizer.configurations[self.current_run]
+        self.current_run += 1
+        return current_configuration
+
+    def _sufficient_available_gpus(self):
+        if device_count() > 1:
+            return True
+        else:
+            log.info("There are less than 2 GPUs available, switching to standard calculation.")
+
+    def _log_results(self):
+        sorted_results = sorted(self.results.items(), key=lambda x: getitem(x[1], 'result'), reverse=True)[:5]
+        log.info("The top 5 results are:")
+        for idx, config in enumerate(sorted_results):
+            log.info(50*'-')
+            log.info(idx+1)
+            log.info(f"{config[0]} with a score of {config[1]['result']}.")
+            log.info("with following configurations:")
+            for parameter, value in config[1]['params'].items():
+                log.info(f"{parameter}:  {value}")
+
 
 
 class TextClassificationParamSelector(ParamSelector):
@@ -176,8 +190,7 @@ class TextClassificationParamSelector(ParamSelector):
 
     def _train(self, params):
 
-        corpus_class = eval(self.corpus_name)
-        corpus = corpus_class()
+        corpus = self.corpus()
 
         label_dict = corpus.make_label_dictionary()
 
@@ -197,30 +210,21 @@ class TextClassificationParamSelector(ParamSelector):
             model, corpus, **model_trainer_parameters
         )
 
-        path = Path(self.base_path) / str(datetime.now())
+        path = Path(self.base_path) / f"training-run-{self.current_run}"
 
         results = trainer.train(
             path,
-            max_epochs=self.max_epochs,
+            max_epochs=self.search_space.max_epochs_per_training,
             param_selection_mode=True,
             **training_params,
         )
-        if self.optimization_value == "score":
+
+        if self.search_space.optimization_value == "score":
             result = results['test_score']
         else:
             result = results['dev_loss_history'][-1]
 
-        return {'result':result, 'params':params}
-
-    def _process_results(self, results: list):
-
-        sorted_results = sorted(results, key=lambda k: k['result'], reverse=True)
-        self.best_config = sorted_results[0]
-
-        if self.optimizer_type == "GeneticOptimizer":
-            self.params = self.optimizer._evolve(sorted_results)
-
-        return
+        return {'result': result, 'params': params}
 
 class SequenceTaggerParamSelector(ParamSelector):
     def __init__(
@@ -263,10 +267,3 @@ class SequenceTaggerParamSelector(ParamSelector):
 
     def _train(self):
         pass
-
-    def _process_results(self, results: list):
-
-        if self.__class__.__name__ == "TextClassificationParamSelector":
-            pass
-        elif self.__class__.__name__ == "SequenceTaggerParamSelector":
-            pass
