@@ -332,7 +332,7 @@ class GeneticOptimizer(ParamOptimizer):
         for idx in range(population_size):
             individual = {}
             for parameter_name, configuration in parameters.items():
-                parameter_value = self.get_formatted_parameter_from(**configuration)
+                parameter_value = self._get_formatted_parameter_from(**configuration)
                 individual[parameter_name] = parameter_value
             individuals.append(individual)
 
@@ -368,7 +368,7 @@ class GeneticOptimizer(ParamOptimizer):
 
         return configurations
 
-    def get_formatted_parameter_from(self, **kwargs):
+    def _get_formatted_parameter_from(self, **kwargs):
         """
         Helper function to extract parameter value depending on provided function
 
@@ -384,31 +384,43 @@ class GeneticOptimizer(ParamOptimizer):
             raise Exception("Please provide either bounds or options as arguments to the search space depending on your function.")
         return parameter
 
-    def _evolve(self, current_population: list):
+    def _evolve_required(self, current_run: int):
+        """
+        Checks if population has to be evolved
+        :param current_run: int
+        :return: True if all individuals from current population has been processed
+        """
+        if current_run % (self.population_size) == self.population_size - 1 and current_run != 0:
+            return True
+        else:
+            return False
+
+
+    def _evolve(self):
         """
         Evolve the current population based on selection, mutation and crossover
         :param current_population: list contraining parameter configurations of current population
         :return: List of configuration (next generation)
         """
-        parent_population = self._get_formatted_population(current_population)
-        selected_population = self._select(current_population)
+        parent_population = self._get_formatted_population()
+        selected_population = self._select()
         new_generation = []
         for child in selected_population:
             child = self._crossover(child, parent_population)
             child = self._mutate(child)
             new_generation.append(child)
-        return new_generation
+        self.configurations = new_generation
 
-    def _get_formatted_population(self, current_population: list):
+    def _get_formatted_population(self):
         """
         Puts the input list in a processable format
         :param current_population: List of configurations
         :return: Formatted list of configuration
         """
         formatted = {}
-        for embedding in current_population:
-            embedding_key = embedding['params']['document_embeddings'].__name__
-            embedding_value = embedding['params']
+        for embedding in self.configurations:
+            embedding_key = embedding['document_embeddings'].__name__
+            embedding_value = embedding
             if embedding_key in formatted:
                 formatted[embedding_key].append(embedding_value)
             else:
@@ -416,24 +428,24 @@ class GeneticOptimizer(ParamOptimizer):
         return formatted
 
 
-    def _select(self, current_population: list):
+    def _select(self):
         """
         Selects best fitting parameter configurations
         :param current_population: List of current configurations / population
         :return: List of best fitting individuals from current population
         """
-        evo_probabilities = self._get_fitness(current_population)
-        return np.random.choice(current_population, size=self.population_size, replace=True, p=evo_probabilities)
+        evo_probabilities = self._get_fitness()
+        return np.random.choice(self.configurations, size=self.population_size, replace=True, p=evo_probabilities)
 
 
-    def _get_fitness(self, current_population: list):
+    def _get_fitness(self):
         """
         Calculates the fitness of each individual (individual fitness / sum of all fitnesses)
         :param current_population: list of all configurations
         :return: survival probabilities for each individual
         """
-        fitness = [individual['result'] for individual in current_population]
-        probabilities = fitness / (sum([x['result'] for x in current_population]))
+        fitness = [individual['result'] for individual in self.configurations]
+        probabilities = fitness / (sum([x['result'] for x in self.configurations]))
         return probabilities
 
 

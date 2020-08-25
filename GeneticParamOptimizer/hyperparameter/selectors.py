@@ -5,7 +5,7 @@ from datetime import datetime
 from operator import getitem
 from typing import Union
 from pathlib import Path
-from torch.cuda import device_count
+from torch import cuda
 from abc import abstractmethod
 
 from GeneticParamOptimizer.hyperparameter.optimizers import *
@@ -56,11 +56,19 @@ class ParamSelector():
 
     def optimize(self, train_on_multiple_gpus : bool = False):
         while self._budget_is_not_used_up():
+
             current_configuration = self._get_current_configuration()
+
             if train_on_multiple_gpus and self._sufficient_available_gpus():
                 self._perform_training_on_multiple_gpus(current_configuration)
             else:
                 self._perform_training(current_configuration)
+
+            if self.optimizer.__class__.__name__ == "GeneticOptimizer" \
+            and self.optimizer._evolve_required(current_run=self.current_run):
+                self.optimizer._evolve()
+
+            self.current_run += 1
 
         self._log_results()
 
@@ -105,19 +113,21 @@ class ParamSelector():
 
     def _is_generations_budget_left(self):
         if self.search_space.budget['generations'] > 0 \
-        and self.current_run % self.optimizer.population_size == 0:
+        and self.current_run % self.optimizer.population_size == 0 \
+        and self.current_run != 0:
             self.search_space.budget['generations'] -= 1
+            return True
+        elif self.search_space.budget['generations'] > 0:
             return True
         else:
             return False
 
     def _get_current_configuration(self):
         current_configuration = self.optimizer.configurations[self.current_run]
-        self.current_run += 1
         return current_configuration
 
     def _sufficient_available_gpus(self):
-        if device_count() > 1:
+        if cuda.device_count() > 1:
             return True
         else:
             log.info("There are less than 2 GPUs available, switching to standard calculation.")
@@ -212,11 +222,14 @@ class TextClassificationParamSelector(ParamSelector):
 
         path = Path(self.base_path) / f"training-run-{self.current_run}"
 
+        embeddings_storage_mode = 'gpu' if cuda.is_available() else 'cpu'
+
         results = trainer.train(
             path,
             max_epochs=self.search_space.max_epochs_per_training,
             param_selection_mode=True,
             **training_params,
+            embeddings_storage_mode=embeddings_storage_mode,
         )
 
         if self.search_space.optimization_value == "score":
