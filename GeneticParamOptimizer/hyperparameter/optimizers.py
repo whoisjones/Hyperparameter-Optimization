@@ -424,7 +424,7 @@ class GeneticOptimizer(ParamOptimizer):
         :return: Formatted list of configuration
         """
         formatted = {}
-        for embedding in self.configurations:
+        for embedding in self.configurations[-self.population_size:]:
             embedding_key = self._get_embedding_key(embedding)
             embedding_value = embedding
             if embedding_key in formatted:
