@@ -14,7 +14,7 @@ search_space = search_spaces.TextClassifierSearchSpace()
 # 3.) depending on your task add the respective parameters you want to optimize over
 
 #Define your budget and optmization metric
-search_space.add_budget(param.Budget.RUNS, 3)
+search_space.add_budget(param.Budget.GENERATIONS, 2)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 search_space.add_max_epochs_per_training(1)
@@ -43,7 +43,7 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, func.choice, op
 #search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, choice, options=[32, 64])
 
 #Pass the search space to the optimizer object
-optimizer = optimizers.GeneticOptimizer(search_space=search_space)
+optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=2)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,

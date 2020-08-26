@@ -23,6 +23,11 @@ log = logging.getLogger("flair")
 class ParamSelector():
     """
     The ParamSelector selects the best configuration omitted by an optimizer object
+    Attributes:
+        corpus: the downstream task corpus
+        base_path: path where to store results
+        optimizer: Optimizer object
+        search_space: SearchSpace object
     """
 
     def __init__(
@@ -44,13 +49,28 @@ class ParamSelector():
 
     @abstractmethod
     def _set_up_model(self, params: dict) -> flair.nn.Model:
+        """
+        Sets up the respective downstream task model
+        :param params: dict of parameters for model configuration
+        :return:
+        """
         pass
 
     @abstractmethod
-    def _train(self, params):
+    def _train(self, params: dict):
+        """
+        trains the respective downstream task model
+        :param params: dict of parameters for training configuration
+        :return:
+        """
         pass
 
     def optimize(self, train_on_multiple_gpus : bool = False):
+        """
+        optimize over the search space
+        :param train_on_multiple_gpus: if true, use PyTorch Distributed Data Parallel, requires at least two GPUs
+        :return: None
+        """
         while self._budget_is_not_used_up():
 
             current_configuration = self._get_current_configuration()
@@ -68,14 +88,23 @@ class ParamSelector():
 
         self._log_results()
 
-    def _perform_training(self, params):
+    def _perform_training(self, params: dict):
+        """
+        perfoms sequentiell training and stores result in optimizer.results
+        :param params: dict containing the parameter configuration
+        :return:
+        """
         self.optimizer.results[f"training-run-{self.current_run}"] = self._train(params)
 
-    def _perform_training_on_multiple_gpus(self, params):
+    def _perform_training_on_multiple_gpus(self, params: dict):
         #TODO to be implemented
         pass
 
     def _budget_is_not_used_up(self):
+        """
+        wrapper function to check whether budget is used up and to stop optimization
+        :return:
+        """
 
         budget_type = self._get_budget_type(self.search_space.budget)
 
@@ -87,6 +116,11 @@ class ParamSelector():
             return self._is_generations_budget_left()
 
     def _get_budget_type(self, budget: dict):
+        """
+        returns budget type
+        :param budget: dict containing budget information
+        :return:
+        """
         if len(budget) == 1:
             for budget_type in budget.keys():
                 return budget_type
@@ -94,6 +128,10 @@ class ParamSelector():
             raise Exception('Budget has more than 1 parameter.')
 
     def _is_time_budget_left(self):
+        """
+        checks whether time budget is not exceeded
+        :return: True if time is left
+        """
         already_running = datetime.fromtimestamp(time.time()) - datetime.fromtimestamp(self.search_space.start_time)
         if (already_running.total_seconds()) / 3600 < self.search_space.budget['time_in_h']:
             return True
@@ -101,6 +139,10 @@ class ParamSelector():
             return False
 
     def _is_runs_budget_left(self):
+        """
+        checks whether runs budget is left. If yes decrease runs by 1.
+        :return: True if runs are left
+        """
         if self.search_space.budget['runs'] > 0:
             self.search_space.budget['runs'] -= 1
             return True
@@ -108,6 +150,11 @@ class ParamSelector():
             return False
 
     def _is_generations_budget_left(self):
+        """
+        checks whether generations budget is left.
+        Generations gets decreased if left generations are greater than 1 and every X steps where X is the size of the population per generation.
+        :return: True if budget is left
+        """
         if self.search_space.budget['generations'] > 1 \
         and self.current_run % self.optimizer.population_size == 0\
         and self.current_run != 0:
@@ -127,16 +174,28 @@ class ParamSelector():
             return False
 
     def _get_current_configuration(self):
+        """
+        return current configuration from optimizer.configurations
+        :return: dict of parameters
+        """
         current_configuration = self.optimizer.configurations[self.current_run]
         return current_configuration
 
     def _sufficient_available_gpus(self):
+        """
+        If training is set to multiple GPUs, checks whether enough GPUs are available
+        :return: True if more than 1 GPU is available
+        """
         if cuda.device_count() > 1:
             return True
         else:
             log.info("There are less than 2 GPUs available, switching to standard calculation.")
 
     def _log_results(self):
+        """
+        When budget is used up, log best results
+        :return: None
+        """
         sorted_results = sorted(self.optimizer.results.items(), key=lambda x: getitem(x[1], 'result'), reverse=True)[:5]
         log.info("The top 5 results are:")
         for idx, config in enumerate(sorted_results):
@@ -168,6 +227,12 @@ class TextClassificationParamSelector(ParamSelector):
         self.multi_label = multi_label
 
     def _set_up_model(self, params: dict, label_dictionary : dict):
+        """
+        Creates an text classifier object with the respective document embeddings.
+        :param params: dict of parameters
+        :param label_dictionary: label dictionary
+        :return: TextClassifier object
+        """
 
         document_embedding = params['document_embeddings'].__name__
         if document_embedding == "DocumentRNNEmbeddings":
@@ -203,6 +268,11 @@ class TextClassificationParamSelector(ParamSelector):
         return text_classifier
 
     def _train(self, params: dict):
+        """
+        trains a TextClassifier with given configuration
+        :param params: dict containing the parameter
+        :return: dict containing result and configuration
+        """
 
         corpus = self.corpus
 
@@ -271,6 +341,11 @@ class SequenceTaggerParamSelector(ParamSelector):
         self.tag_dictionary = self.corpus.make_tag_dictionary(self.tag_type)
 
     def _set_up_model(self, params: dict):
+        """
+        sets up the sequence tagger object for a given configuration
+        :param params: dict containing the parameters
+        :return: SequenceTagger object
+        """
 
         sequence_tagger_params = {
             key: params[key] for key in params if key in SEQUENCE_TAGGER_PARAMETERS
@@ -291,6 +366,11 @@ class SequenceTaggerParamSelector(ParamSelector):
         return tagger
 
     def _train(self, params: dict):
+        """
+        trains a sequence tagger model
+        :param params: dict containing the parameters
+        :return: dict containing result and configuration
+        """
 
         corpus = self.corpus
 
@@ -322,4 +402,3 @@ class SequenceTaggerParamSelector(ParamSelector):
             result = results['dev_loss_history'][-1]
 
         return {'result': result, 'params': params}
-

@@ -49,6 +49,7 @@ class ParamOptimizer(object):
         :param search_space: the search space from which to get parameters and budget from
         """
         self.results = {}
+        self.document_embedding_specific = search_space.document_embedding_specific
         search_space._check_mandatory_parameters_are_set(optimizer_type=self.__class__.__name__)
 
     @abstractmethod
@@ -424,7 +425,7 @@ class GeneticOptimizer(ParamOptimizer):
         """
         formatted = {}
         for embedding in self.configurations:
-            embedding_key = embedding['document_embeddings'].__name__
+            embedding_key = self._get_embedding_key(embedding)
             embedding_value = embedding
             if embedding_key in formatted:
                 formatted[embedding_key].append(embedding_value)
@@ -462,7 +463,7 @@ class GeneticOptimizer(ParamOptimizer):
         :param parent_population: all selected individuals from previous generation
         :return: child with crossover parameters
         """
-        child_type = child['document_embeddings'].__name__
+        child_type = self._get_embedding_key(child)
         population_size = len(parent_population[child_type])
         DNA_size = len(child)
         if np.random.rand() < self.cross_rate:
@@ -481,7 +482,7 @@ class GeneticOptimizer(ParamOptimizer):
         :param child: Dict containing all parameters for a training run
         :return: mutated child
         """
-        child_type = child['document_embeddings'].__name__
+        child_type = self._get_embedding_key(child)
         for parameter in child.keys():
             if np.random.rand() < self.mutation_rate:
                 func = self.all_configurations[child_type][parameter]['method']
@@ -490,3 +491,15 @@ class GeneticOptimizer(ParamOptimizer):
                 elif self.all_configurations[child_type][parameter].get("bounds") is not None:
                     child[parameter] = func(self.all_configurations[child_type][parameter]['bounds'])
         return child
+
+    def _get_embedding_key(self, embedding: dict):
+        """
+        return depending on document specific parameters the embedding key
+        :param embedding:
+        :return:
+        """
+        if self.document_embedding_specific == True:
+            embedding_key = embedding['document_embeddings'].__name__
+        else:
+            embedding_key = "universal_embeddings"
+        return embedding_key

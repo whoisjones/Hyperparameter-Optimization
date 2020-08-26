@@ -15,14 +15,11 @@ search_space.add_tag_type("pos")
 search_space.add_budget(param.Budget.GENERATIONS, 3)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
-search_space.add_max_epochs_per_training(2)
+search_space.add_max_epochs_per_training(1)
 
 search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, func.choice, options=[
                                                                             [WordEmbeddings('glove')],
-                                                                            [WordEmbeddings('en')],
-                                                                            [WordEmbeddings('glove'),
-                                                                             FlairEmbeddings('news-forward'),
-                                                                             FlairEmbeddings('news-backward')]
+                                                                            [WordEmbeddings('en')]
                                                                             ])
 search_space.add_parameter(param.SequenceTagger.HIDDEN_SIZE, func.choice, options=[128, 256, 512])
 search_space.add_parameter(param.SequenceTagger.DROPOUT, func.uniform, bounds=[0, 0.5])
@@ -31,7 +28,7 @@ search_space.add_parameter(param.SequenceTagger.RNN_LAYERS, func.choice, options
 optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=4)
 
 param_selector = selectors.SequenceTaggerParamSelector(corpus=corpus,
-                                                       base_path="hyperparameter-opt-seq",
+                                                       base_path="resources/hyperparameter-opt-seq",
                                                        search_space=search_space,
                                                        optimizer=optimizer)
 
