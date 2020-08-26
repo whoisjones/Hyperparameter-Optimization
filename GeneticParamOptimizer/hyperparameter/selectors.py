@@ -15,11 +15,8 @@ from GeneticParamOptimizer.hyperparameter.helpers import *
 import flair.nn
 from flair.data import Corpus
 from flair.datasets import *
-from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, WordEmbeddings
+from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, WordEmbeddings, StackedEmbeddings
 from flair.models import TextClassifier
-from flair.training_utils import (
-    EvaluationMetric
-)
 
 log = logging.getLogger("flair")
 
@@ -116,13 +113,16 @@ class ParamSelector():
         and self.current_run != 0:
             self.search_space.budget['generations'] -= 1
             return True
+
         elif self.search_space.budget['generations'] == 1 \
         and self.current_run % self.optimizer.population_size == 0\
         and self.current_run != 0:
             self.search_space.budget['generations'] -= 1
             return False
+
         elif self.search_space.budget['generations'] > 0:
             return True
+
         else:
             return False
 
@@ -202,9 +202,9 @@ class TextClassificationParamSelector(ParamSelector):
 
         return text_classifier
 
-    def _train(self, params):
+    def _train(self, params: dict):
 
-        corpus = self.corpus()
+        corpus = self.corpus
 
         label_dict = corpus.make_label_dictionary()
 
@@ -271,16 +271,55 @@ class SequenceTaggerParamSelector(ParamSelector):
         self.tag_dictionary = self.corpus.make_tag_dictionary(self.tag_type)
 
     def _set_up_model(self, params: dict):
+
         sequence_tagger_params = {
             key: params[key] for key in params if key in SEQUENCE_TAGGER_PARAMETERS
         }
+
+        embedding_types = params['embeddings']
+
+        embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
+
+        sequence_tagger_params['embeddings'] = embeddings
 
         tagger: SequenceTagger = SequenceTagger(
             tag_dictionary=self.tag_dictionary,
             tag_type=self.tag_type,
             **sequence_tagger_params,
         )
+
         return tagger
 
-    def _train(self):
-        pass
+    def _train(self, params: dict):
+
+        corpus = self.corpus
+
+        tagger = self._set_up_model(params=params)
+
+        training_params = {
+            key: params[key] for key, value in params.items() if key in TRAINING_PARAMETERS
+        }
+        model_trainer_parameters = {
+            key: params[key] for key, value in params.items() if key in MODEL_TRAINER_PARAMETERS and key != 'model'
+        }
+
+        trainer: ModelTrainer = ModelTrainer(
+            tagger, corpus, **model_trainer_parameters
+        )
+
+        path = Path(self.base_path) / f"training-run-{self.current_run}"
+
+        embeddings_storage_mode = 'gpu' if cuda.is_available() else 'cpu'
+
+        results = trainer.train(path,
+                      max_epochs=self.search_space.max_epochs_per_training,
+                      **training_params,
+                      embeddings_storage_mode=embeddings_storage_mode)
+
+        if self.search_space.optimization_value == "score":
+            result = results['test_score']
+        else:
+            result = results['dev_loss_history'][-1]
+
+        return {'result': result, 'params': params}
+

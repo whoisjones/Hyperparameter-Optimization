@@ -6,7 +6,7 @@ from flair.datasets import TREC_6
 from torch.optim import SGD, Adam
 
 # 1.) Define your corpus
-corpus = TREC_6
+corpus = TREC_6()
 
 # 2.) create an search space
 search_space = search_spaces.TextClassifierSearchSpace()
