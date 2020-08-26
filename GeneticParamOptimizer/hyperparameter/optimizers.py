@@ -408,14 +408,11 @@ class GeneticOptimizer(ParamOptimizer):
         """
         parent_population = self._get_formatted_population()
         selected_population = self._select()
-        new_generation = []
         for child in selected_population:
             child = self._crossover(child, parent_population)
             child = self._mutate(child)
-            new_generation.append(child)
+            self.configurations.append(child)
 
-        for new_individual in new_generation:
-            self.configurations.append(new_individual)
 
     def _get_formatted_population(self):
         """
@@ -451,7 +448,10 @@ class GeneticOptimizer(ParamOptimizer):
         :return: survival probabilities for each individual
         """
         fitness = [individual['result'] for individual in self.results.values()]
+        log.info(f"fitness: {fitness}")
+        log.info(f"{(sum([individual['result'] for individual in self.results.values()]))}")
         probabilities = fitness / (sum([individual['result'] for individual in self.results.values()]))
+        log.info(f"probs: {probabilities}")
         return probabilities
 
 
