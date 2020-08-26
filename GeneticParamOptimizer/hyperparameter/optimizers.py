@@ -447,11 +447,8 @@ class GeneticOptimizer(ParamOptimizer):
         :param current_population: list of all configurations
         :return: survival probabilities for each individual
         """
-        fitness = [individual['result'] for individual in self.results.values()]
-        log.info(f"fitness: {fitness}")
-        log.info(f"{(sum([individual['result'] for individual in self.results.values()]))}")
+        fitness = np.asarray([individual['result'] for individual in self.results.values()])
         probabilities = fitness / (sum([individual['result'] for individual in self.results.values()]))
-        log.info(f"probs: {probabilities}")
         return probabilities
 
 
