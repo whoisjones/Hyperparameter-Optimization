@@ -43,7 +43,6 @@ class ParamSelector():
         self.base_path = base_path
         self.optimizer = optimizer
         self.search_space = search_space
-        self.results = {}
         self.current_run = 0
 
     @abstractmethod
@@ -73,7 +72,7 @@ class ParamSelector():
         self._log_results()
 
     def _perform_training(self, params):
-        self.results[f"training-run-{self.current_run}"] = self._train(params)
+        self.optimizer.results[f"training-run-{self.current_run}"] = self._train(params)
 
     def _perform_training_on_multiple_gpus(self, params):
         #TODO to be implemented
@@ -112,11 +111,16 @@ class ParamSelector():
             return False
 
     def _is_generations_budget_left(self):
-        if self.search_space.budget['generations'] > 0 \
-        and self.current_run % self.optimizer.population_size == 0 \
+        if self.search_space.budget['generations'] > 1 \
+        and self.current_run % self.optimizer.population_size == 0\
         and self.current_run != 0:
             self.search_space.budget['generations'] -= 1
             return True
+        elif self.search_space.budget['generations'] == 1 \
+        and self.current_run % self.optimizer.population_size == 0\
+        and self.current_run != 0:
+            self.search_space.budget['generations'] -= 1
+            return False
         elif self.search_space.budget['generations'] > 0:
             return True
         else:
@@ -133,7 +137,7 @@ class ParamSelector():
             log.info("There are less than 2 GPUs available, switching to standard calculation.")
 
     def _log_results(self):
-        sorted_results = sorted(self.results.items(), key=lambda x: getitem(x[1], 'result'), reverse=True)[:5]
+        sorted_results = sorted(self.optimizer.results.items(), key=lambda x: getitem(x[1], 'result'), reverse=True)[:5]
         log.info("The top 5 results are:")
         for idx, config in enumerate(sorted_results):
             log.info(50*'-')

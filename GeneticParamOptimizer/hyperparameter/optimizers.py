@@ -48,6 +48,7 @@ class ParamOptimizer(object):
         :rtype: object
         :param search_space: the search space from which to get parameters and budget from
         """
+        self.results = {}
         search_space._check_mandatory_parameters_are_set(optimizer_type=self.__class__.__name__)
 
     @abstractmethod
@@ -181,6 +182,7 @@ class GridSearchOptimizer(ParamOptimizer):
         parameter_keys = []
         uniformly_sampled_parameters = {}
 
+        #TODO refactor with get operation
         for parameter_name, configuration in parameters.items():
             try:
                 parameter_options.append(configuration['options'])
@@ -271,6 +273,7 @@ class GeneticOptimizer(ParamOptimizer):
         self.population_size = population_size
         self.cross_rate = cross_rate
         self.mutation_rate = mutation_rate
+        self.all_configurations = search_space.parameters
 
         self.configurations = self._get_configurations(
                                 parameters=search_space.parameters,
@@ -376,9 +379,9 @@ class GeneticOptimizer(ParamOptimizer):
         :return: float or int depending on function provided
         """
         func = kwargs.get('method')
-        if kwargs.get('options') != None:
+        if kwargs.get('options') is not None:
             parameter = func(kwargs.get('options'))
-        elif kwargs.get('bounds') != None:
+        elif kwargs.get('bounds') is not None:
             parameter = func(kwargs.get('bounds'))
         else:
             raise Exception("Please provide either bounds or options as arguments to the search space depending on your function.")
@@ -390,7 +393,7 @@ class GeneticOptimizer(ParamOptimizer):
         :param current_run: int
         :return: True if all individuals from current population has been processed
         """
-        if current_run % (self.population_size) == self.population_size - 1 and current_run != 0:
+        if current_run % (self.population_size) == (self.population_size - 1):
             return True
         else:
             return False
@@ -409,7 +412,9 @@ class GeneticOptimizer(ParamOptimizer):
             child = self._crossover(child, parent_population)
             child = self._mutate(child)
             new_generation.append(child)
-        self.configurations = new_generation
+
+        for new_individual in new_generation:
+            self.configurations.append(new_individual)
 
     def _get_formatted_population(self):
         """
@@ -444,8 +449,8 @@ class GeneticOptimizer(ParamOptimizer):
         :param current_population: list of all configurations
         :return: survival probabilities for each individual
         """
-        fitness = [individual['result'] for individual in self.configurations]
-        probabilities = fitness / (sum([x['result'] for x in self.configurations]))
+        fitness = [individual['result'] for individual in self.results.values()]
+        probabilities = fitness / (sum([individual['result'] for individual in self.results.values()]))
         return probabilities
 
 
@@ -457,16 +462,16 @@ class GeneticOptimizer(ParamOptimizer):
         :param parent_population: all selected individuals from previous generation
         :return: child with crossover parameters
         """
-        child_type = child['params']['document_embeddings'].__name__
+        child_type = child['document_embeddings'].__name__
         population_size = len(parent_population[child_type])
-        DNA_size = len(child['params'])
+        DNA_size = len(child)
         if np.random.rand() < self.cross_rate:
             i_ = randrange(population_size)  # select another individual from pop
             parent = parent_population[child_type][i_]
             cross_points = np.random.randint(0, 2, DNA_size).astype(np.bool)  # choose crossover points
-            for (parameter, value), replace in zip(child['params'].items(), cross_points):
+            for (parameter, value), replace in zip(child.items(), cross_points):
                 if replace:
-                    child['params'][parameter] = parent[parameter] # mating and produce one child
+                    child[parameter] = parent[parameter] # mating and produce one child
         return child
 
     def _mutate(self, child: dict):
@@ -476,9 +481,12 @@ class GeneticOptimizer(ParamOptimizer):
         :param child: Dict containing all parameters for a training run
         :return: mutated child
         """
-        child_type = child['params']['document_embeddings'].__name__
-        for parameter in child['params']:
+        child_type = child['document_embeddings'].__name__
+        for parameter in child.keys():
             if np.random.rand() < self.mutation_rate:
-                func = self.all_parameters[child_type][parameter]['method']
-                child[parameter] = func(self.all_parameters[child_type][parameter]['options'])
+                func = self.all_configurations[child_type][parameter]['method']
+                if self.all_configurations[child_type][parameter].get("options") is not None:
+                    child[parameter] = func(self.all_configurations[child_type][parameter]['options'])
+                elif self.all_configurations[child_type][parameter].get("bounds") is not None:
+                    child[parameter] = func(self.all_configurations[child_type][parameter]['bounds'])
         return child
