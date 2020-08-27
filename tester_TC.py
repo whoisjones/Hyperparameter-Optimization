@@ -14,10 +14,10 @@ search_space = search_spaces.TextClassifierSearchSpace()
 # 3.) depending on your task add the respective parameters you want to optimize over
 
 #Define your budget and optmization metric
-search_space.add_budget(param.Budget.GENERATIONS, 3)
+search_space.add_budget(param.Budget.GENERATIONS, 5)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
-search_space.add_max_epochs_per_training(5)
+search_space.add_max_epochs_per_training(10)
 
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
 search_space.add_parameter(param.TextClassifier.DOCUMENT_EMBEDDINGS, func.choice, options=[DocumentRNNEmbeddings,
@@ -39,15 +39,15 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.WORD_EMBEDDINGS, func.ch
 search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, func.choice, options=['mean', 'max', 'min'])
 
 #Define parameters for Transformers
-#search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, choice, options=["bert-base-uncased", "distilbert-base-uncased"])
-#search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, choice, options=[32, 64])
+search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, func.choice, options=["bert-base-uncased", "distilbert-base-uncased"])
+search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, func.choice, options=[32, 64])
 
 #Pass the search space to the optimizer object
 optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=8)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
-                                                           base_path='resources/hyperparameter-opt',
+                                                           base_path='resources/hyperparameter-opt-1',
                                                            optimizer=optimizer,
                                                            search_space=search_space)
 param_selector.optimize()
