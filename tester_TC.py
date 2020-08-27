@@ -22,7 +22,7 @@ search_space.add_max_epochs_per_training(10)
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
 search_space.add_parameter(param.TextClassifier.DOCUMENT_EMBEDDINGS, func.choice, options=[DocumentRNNEmbeddings,
                                                                                       DocumentPoolEmbeddings])
-                                                                                      #TransformerDocumentEmbeddings])
+                                                                                      TransformerDocumentEmbeddings])
 search_space.add_parameter(param.ModelTrainer.LEARNING_RATE, func.choice, options=[0.01, 0.05, 0.1])
 search_space.add_parameter(param.ModelTrainer.MINI_BATCH_SIZE, func.choice, options=[16, 32])
 search_space.add_parameter(param.ModelTrainer.OPTIMIZER, func.choice, options=[SGD, Adam])
