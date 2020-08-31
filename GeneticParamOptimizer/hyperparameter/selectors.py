@@ -1,6 +1,7 @@
 import time
 import os
 import logging
+import pickle
 from datetime import datetime
 from operator import getitem
 from typing import Union
@@ -95,6 +96,7 @@ class ParamSelector():
         :return:
         """
         self.optimizer.results[f"training-run-{self.current_run}"] = self._train(params)
+        self._store_results(result=self.optimizer.results[f"training-run-{self.current_run}"], current_run=self.current_run)
 
     def _perform_training_on_multiple_gpus(self, params: dict):
         #TODO to be implemented
@@ -205,6 +207,36 @@ class ParamSelector():
             log.info("with following configurations:")
             for parameter, value in config[1]['params'].items():
                 log.info(f"{parameter}:  {value}")
+
+    def _store_results(self, result: dict, current_run: int):
+        """
+        stores a .txt file with the results
+        :return: None
+        """
+        result['timestamp'] = datetime.now()
+        entry = f"training-run-{current_run}"
+        try:
+            self._load_and_pickle_results(entry, result)
+        except FileNotFoundError:
+            self._initialize_results_pickle(entry, result)
+
+    def _load_and_pickle_results(self, entry: str, result: dict):
+        pickle_file = open(self.base_path / "results.pkl", 'rb')
+        results_dict = pickle.load(pickle_file)
+        pickle_file.close()
+        pickle_file = open(self.base_path / "results.pkl", 'wb')
+        results_dict[entry] = result
+        pickle.dump(results_dict, pickle_file)
+        pickle_file.close()
+
+    def _initialize_results_pickle(self, entry: str, result: dict):
+        results_dict = {}
+        pickle_file = open(self.base_path / "results.pkl", 'wb')
+        results_dict[entry] = result
+        pickle.dump(results_dict, pickle_file)
+        pickle_file.close()
+
+
 
 
 
