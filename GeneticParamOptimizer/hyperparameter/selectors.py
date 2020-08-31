@@ -17,7 +17,7 @@ import flair.nn
 from flair.data import Corpus
 from flair.datasets import *
 from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, WordEmbeddings, StackedEmbeddings
-from flair.models import TextClassifier
+from flair.models import TextClassifier, SequenceTagger
 
 log = logging.getLogger("flair")
 
