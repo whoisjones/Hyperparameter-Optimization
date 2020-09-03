@@ -18,6 +18,7 @@ from flair.data import Corpus
 from flair.datasets import *
 from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, WordEmbeddings, StackedEmbeddings
 from flair.models import TextClassifier, SequenceTagger
+from flair.trainers import ModelTrainer
 
 log = logging.getLogger("flair")
 
@@ -328,14 +329,11 @@ class TextClassificationParamSelector(ParamSelector):
 
         path = Path(self.base_path) / f"training-run-{self.current_run}"
 
-        embeddings_storage_mode = 'gpu' if cuda.is_available() else 'cpu'
-
         results = trainer.train(
             path,
             max_epochs=self.search_space.max_epochs_per_training,
             param_selection_mode=True,
-            **training_params,
-            embeddings_storage_mode=embeddings_storage_mode,
+            **training_params
         )
 
         if self.search_space.optimization_value == "score":
@@ -421,12 +419,9 @@ class SequenceTaggerParamSelector(ParamSelector):
 
         path = Path(self.base_path) / f"training-run-{self.current_run}"
 
-        embeddings_storage_mode = 'gpu' if cuda.is_available() else 'cpu'
-
         results = trainer.train(path,
                       max_epochs=self.search_space.max_epochs_per_training,
-                      **training_params,
-                      embeddings_storage_mode=embeddings_storage_mode)
+                      **training_params)
 
         if self.search_space.optimization_value == "score":
             result = results['test_score']
