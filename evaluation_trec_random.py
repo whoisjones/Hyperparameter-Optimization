@@ -14,7 +14,7 @@ search_space = search_spaces.TextClassifierSearchSpace()
 # 3.) depending on your task add the respective parameters you want to optimize over
 
 #Define your budget and optmization metric
-search_space.add_budget(param.Budget.TIME_IN_H, 8)
+search_space.add_budget(param.Budget.TIME_IN_H, 24)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 search_space.add_max_epochs_per_training(15)

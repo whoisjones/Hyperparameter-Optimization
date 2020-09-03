@@ -45,11 +45,11 @@ search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, func.choic
 search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, func.choice, options=[16, 32, 64])
 
 #Pass the search space to the optimizer object
-optimizer = optimizers.GeneticOptimizer(search_space=search_space, population_size=8)
+optimizer = optimizers.GeneticOptimizer(search_space=search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
-                                                           base_path='resources/evaluation-trec-genetic',
+                                                           base_path='resources/evaluation-trec-genetic-v2',
                                                            optimizer=optimizer,
                                                            search_space=search_space)
 param_selector.optimize()
