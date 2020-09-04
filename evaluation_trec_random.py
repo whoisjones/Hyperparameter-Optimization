@@ -49,7 +49,7 @@ optimizer = optimizers.RandomSearchOptimizer(search_space=search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
-                                                           base_path='resources/evaluation-trec-random-v2',
+                                                           base_path='resources/evaluation-trec-random-v3',
                                                            optimizer=optimizer,
                                                            search_space=search_space)
 param_selector.optimize()
