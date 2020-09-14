@@ -49,7 +49,5 @@ optimizer = optimizers.GeneticOptimizer(search_space=search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
-                                                           base_path='resources/evaluation-trec-genetic-v2',
-                                                           optimizer=optimizer,
-                                                           search_space=search_space)
-param_selector.optimize()
+                                                           base_path='resources/evaluation-trec-genetic-v2')
+param_selector.optimize(optimizer=optimizer)

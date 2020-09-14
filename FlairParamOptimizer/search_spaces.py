@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from enum import Enum
 from abc import abstractmethod
 
@@ -40,6 +41,7 @@ class SearchSpace(object):
 
     def __init__(self, document_embedding_specific_parameters: bool):
         self.parameters = {}
+        self.configurations = []
         self.budget = {}
         self.optimization_value = {}
         self.evaluation_metric = {}
@@ -73,16 +75,77 @@ class SearchSpace(object):
 
     def _check_mandatory_parameters_are_set(self, optimizer_type: str):
         if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric]) \
-                and self._check_budget_type(optimizer_type):
+                and self._check_budget_type_matches_optimizer_type(optimizer_type):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
-    def _check_budget_type(self, optimizer_type):
+    def _check_budget_type_matches_optimizer_type(self, optimizer_type):
         if 'generations' in self.budget and optimizer_type == "GeneticOptimizer":
             return True
         elif 'runs' in self.budget or 'time_in_h' in self.budget:
             return True
         else:
             return False
+
+    def _budget_is_not_used_up(self):
+        budget_type = self._get_budget_type(self.budget)
+        if budget_type == 'time_in_h':
+            return self._is_time_budget_left()
+        elif budget_type == 'runs':
+            return self._is_runs_budget_left()
+        elif budget_type == 'generations':
+            return self._is_generations_budget_left()
+
+    def _get_budget_type(self, budget: dict):
+        if len(budget) == 1:
+            for budget_type in budget.keys():
+                return budget_type
+        else:
+            raise Exception('Budget has more than 1 parameter.')
+
+    def _is_time_budget_left(self):
+        time_passed_since_start = datetime.fromtimestamp(time.time()) - datetime.fromtimestamp(self.start_time)
+        if (time_passed_since_start.total_seconds()) / 3600 < self.budget['time_in_h']:
+            return True
+        else:
+            return False
+
+    def _is_runs_budget_left(self):
+        if self.budget['runs'] > 0:
+            self.budget['runs'] -= 1
+            return True
+        else:
+            return False
+
+    def _is_generations_budget_left(self):
+        #Decrease generations every X iterations (X is amount of individuals per generation)
+        if self.search_space.budget['generations'] > 1 \
+        and self.current_run % self.optimizer.population_size == 0\
+        and self.current_run != 0:
+            self.search_space.budget['generations'] -= 1
+            return True
+
+        #If last generation, budget is used up
+        elif self.search_space.budget['generations'] == 1 \
+        and self.current_run % self.optimizer.population_size == 0\
+        and self.current_run != 0:
+            self.search_space.budget['generations'] -= 1
+            return False
+
+        elif self.search_space.budget['generations'] > 0:
+            return True
+
+        else:
+            return False
+
+    def _get_current_configuration(self, current_run: int):
+        current_configuration = self.configurations[current_run]
+        return current_configuration
+
+    def _get_technical_training_parameters(self):
+        model_training_parameters = {}
+        model_training_parameters["max_epochs"] = self.max_epochs_per_training
+        model_training_parameters["optimization_value"] = self.optimization_value
+        return model_training_parameters
 
 class TextClassifierSearchSpace(SearchSpace):
 
@@ -106,11 +169,11 @@ class TextClassifierSearchSpace(SearchSpace):
             raise Exception("Document Embeddings have to be set first.")
 
         if parameter.name == "DOCUMENT_EMBEDDINGS":
-            self._insert_document_embeddings_in_search_space(parameter, sampling_function, **kwargs)
+            self._insert_document_embeddings_hierarchy(parameter, sampling_function, **kwargs)
         else:
-            self._insert_universal_parameters_in_search_space(parameter, sampling_function, kwargs)
+            self._insert_parameters(parameter, sampling_function, kwargs)
 
-    def _insert_document_embeddings_in_search_space(self,
+    def _insert_document_embeddings_hierarchy(self,
                                  parameter: Enum,
                                  func: sampling_func,
                                  options):
@@ -120,7 +183,7 @@ class TextClassifierSearchSpace(SearchSpace):
         except:
             raise Exception("Document embeddings only takes options as arguments")
 
-    def _insert_universal_parameters_in_search_space(self,
+    def _insert_parameters(self,
                         parameter: Enum,
                         func: sampling_func,
                         kwargs):
