@@ -78,7 +78,7 @@ class SearchSpace(object):
                 and self._check_budget_type_matches_optimizer_type(optimizer_type):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
-    def _check_budget_type_matches_optimizer_type(self, optimizer_type):
+    def _check_budget_type_matches_optimizer_type(self, optimizer_type: str):
         if 'generations' in self.budget and optimizer_type == "GeneticOptimizer":
             return True
         elif 'runs' in self.budget or 'time_in_h' in self.budget:
@@ -123,19 +123,15 @@ class SearchSpace(object):
         and self.current_run != 0:
             self.search_space.budget['generations'] -= 1
             return True
-
         #If last generation, budget is used up
         elif self.search_space.budget['generations'] == 1 \
         and self.current_run % self.optimizer.population_size == 0\
         and self.current_run != 0:
             self.search_space.budget['generations'] -= 1
             return False
-
+        #If enough budget, pass
         elif self.search_space.budget['generations'] > 0:
             return True
-
-        else:
-            return False
 
     def _get_current_configuration(self, current_run: int):
         current_configuration = self.configurations[current_run]
@@ -147,12 +143,11 @@ class SearchSpace(object):
         model_training_parameters["optimization_value"] = self.optimization_value
         return model_training_parameters
 
+
 class TextClassifierSearchSpace(SearchSpace):
 
     def __init__(self):
-        super().__init__(
-            document_embedding_specific_parameters=True
-        )
+        super().__init__(document_embedding_specific_parameters=True)
 
     def add_parameter(self,
                       parameter: Enum,
@@ -174,9 +169,9 @@ class TextClassifierSearchSpace(SearchSpace):
             self._insert_parameters(parameter, sampling_function, kwargs)
 
     def _insert_document_embeddings_hierarchy(self,
-                                 parameter: Enum,
-                                 func: sampling_func,
-                                 options):
+                                              parameter: Enum,
+                                              func: sampling_func,
+                                              options):
         try:
             for embedding in options:
                 self.parameters[embedding.__name__] = {parameter.value: {"options": [embedding], "method": func}}
@@ -184,18 +179,18 @@ class TextClassifierSearchSpace(SearchSpace):
             raise Exception("Document embeddings only takes options as arguments")
 
     def _insert_parameters(self,
-                        parameter: Enum,
-                        func: sampling_func,
-                        kwargs):
+                           parameter: Enum,
+                           func: sampling_func,
+                           kwargs):
         if "Document" in parameter.__class__.__name__:
             self._insert_embedding_specific_parameter(parameter, func, kwargs)
         else:
             self._insert_universal_parameter(parameter, func, kwargs)
 
     def _insert_embedding_specific_parameter(self,
-                                          parameter: Enum,
-                                          func: sampling_func,
-                                          kwargs):
+                                             parameter: Enum,
+                                             func: sampling_func,
+                                             kwargs):
         try:
             for key, values in kwargs.items():
                 self.parameters[parameter.__class__.__name__].update({parameter.value: {key: values, "method": func}})
@@ -203,9 +198,9 @@ class TextClassifierSearchSpace(SearchSpace):
             raise Exception("If your want to assign document embedding specific parameters, make sure it is included in the search space.")
 
     def _insert_universal_parameter(self,
-                                 parameter: Enum,
-                                 func: sampling_func,
-                                 kwargs):
+                                    parameter: Enum,
+                                    func: sampling_func,
+                                    kwargs):
         for embedding in self.parameters:
             for key, values in kwargs.items():
                 self.parameters[embedding].update({parameter.value: {key: values, "method": func}})
@@ -214,12 +209,10 @@ class TextClassifierSearchSpace(SearchSpace):
 class SequenceTaggerSearchSpace(SearchSpace):
 
     def __init__(self):
-        super().__init__(
-            document_embedding_specific_parameters=False
-        )
+        super().__init__(document_embedding_specific_parameters=False)
         self.tag_type = ""
 
-    def add_tag_type(self, tag_type : str):
+    def add_tag_type(self, tag_type: str):
         self.tag_type = tag_type
 
     def add_parameter(self,
