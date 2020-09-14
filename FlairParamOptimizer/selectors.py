@@ -1,5 +1,4 @@
 import time
-import os
 import logging
 import pickle
 from datetime import datetime
@@ -7,15 +6,13 @@ from operator import getitem
 from typing import Union
 from pathlib import Path
 from torch import cuda
-from abc import abstractmethod
 
-from GeneticParamOptimizer.hyperparameter.optimizers import *
-from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
-from GeneticParamOptimizer.hyperparameter.helpers import *
+from FlairParamOptimizer.optimizers import *
+from FlairParamOptimizer.search_spaces import SearchSpace
+from FlairParamOptimizer.helpers import *
 
 import flair.nn
 from flair.data import Corpus
-from flair.datasets import *
 from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, WordEmbeddings, StackedEmbeddings
 from flair.models import TextClassifier, SequenceTagger
 from flair.trainers import ModelTrainer

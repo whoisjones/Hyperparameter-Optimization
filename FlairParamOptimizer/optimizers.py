@@ -1,12 +1,10 @@
 import itertools
 from abc import abstractmethod
 import random
-import logging as log
 import numpy as np
 from random import randrange
-from .parameters import *
 
-from GeneticParamOptimizer.hyperparameter.search_spaces import SearchSpace
+from FlairParamOptimizer.search_spaces import SearchSpace
 
 """
 The ParamOptimizer object acts as the optimizer instance in flair's hyperparameter optimization.
