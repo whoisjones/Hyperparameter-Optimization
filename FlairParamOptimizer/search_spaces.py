@@ -5,7 +5,8 @@ from abc import abstractmethod
 
 from .parameters import ParameterCollection
 from .sampling_functions import sampling_func
-from .parameters_for_user_guidance import Budget, EvaluationMetric, OptimizationValue
+from .parameters_for_user_guidance import Budget, EvaluationMetric, OptimizationValue, TextClassifier
+from .task_specific_parameters import EMBEDDING_SPECIFIC_PARAMETERS
 
 """
 The Search Space object acts as a data object containing all configurations for the hyperparameter optimization.
@@ -41,8 +42,7 @@ Note following combinations of functions and type of parameter values are possib
 class SearchSpace(object):
 
     def __init__(self, document_embedding_specific_parameters: bool):
-        #self.parameters = ParameterCollection()
-        self.parameters = {}
+        self.parameters = ParameterCollection()
         self.configurations = []
         self.budget = {}
         self.current_run = 0
@@ -53,9 +53,10 @@ class SearchSpace(object):
 
     @abstractmethod
     def add_parameter(self,
+                      embedding_key: str,
                       parameter: Enum,
                       sampling_function: sampling_func,
-                      **kwargs):
+                      kwargs):
         pass
 
     def add_budget(self, budget: Budget, amount):
@@ -161,19 +162,38 @@ class TextClassifierSearchSpace(SearchSpace):
                       sampling_function: sampling_func,
                       **kwargs):
         try:
-            sampling_func.validate_value_range(sampling_function, arguments=kwargs)
+            sampling_func.validate_value_range(sampling_function, kwargs)
+            unprocessed_value_range = sampling_func.extract_value_range(sampling_function, kwargs)
         except:
             raise Exception("Please provide correct value ranges to your sampling function.")
 
+        """
         try:
             self._check_document_embeddings_are_set(parameter)
         except:
             raise Exception("Document Embeddings have to be set first.")
+        """
 
-        if parameter.name == "DOCUMENT_EMBEDDINGS":
-            self._insert_document_embeddings_hierarchy(parameter, sampling_function, **kwargs)
+        processed_embedding_keys_and_value_ranges = self._extract_embedding_keys_and_value_ranges(parameter, unprocessed_value_range)
+
+        for embedding_key, value_range in processed_embedding_keys_and_value_ranges:
+            self.parameters.add(embedding_key=embedding_key,
+                                parameter_name=parameter.value,
+                                sampling_function=sampling_function,
+                                value_range=value_range)
+
+    def _extract_embedding_keys_and_value_ranges(self, parameter: Enum, unprocessed_value_range: list) -> list:
+        if parameter.name == TextClassifier.DOCUMENT_EMBEDDINGS.name:
+            embedding_keys = [document_embedding.__name__ for document_embedding in unprocessed_value_range]
+            value_ranges = [[document_embedding_class] for document_embedding_class in unprocessed_value_range]
+        elif parameter.__class__.__name__ in EMBEDDING_SPECIFIC_PARAMETERS:
+            embedding_keys = [parameter.__class__.__name__]
+            value_ranges = [unprocessed_value_range]
         else:
-            self._insert_parameters(parameter, sampling_function, kwargs)
+            embedding_keys = ["GeneralParameters"]
+            value_ranges = [unprocessed_value_range]
+        processed_embedding_keys_and_value_ranges = list(zip(embedding_keys, value_ranges))
+        return processed_embedding_keys_and_value_ranges
 
     def _insert_document_embeddings_hierarchy(self,
                                               parameter: Enum,
