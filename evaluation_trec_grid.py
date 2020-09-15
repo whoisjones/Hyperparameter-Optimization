@@ -1,5 +1,5 @@
 from FlairParamOptimizer import optimizers, search_spaces, selectors
-import FlairParamOptimizer.parameters as param
+import FlairParamOptimizer.parameters_for_user_guidance as param
 from FlairParamOptimizer.sampling_functions import sampling_func
 from flair.embeddings import DocumentPoolEmbeddings, DocumentRNNEmbeddings, TransformerDocumentEmbeddings
 from flair.datasets import TREC_6
@@ -14,10 +14,10 @@ search_space = search_spaces.TextClassifierSearchSpace()
 # 3.) depending on your task add the respective parameters you want to optimize over
 
 #Define your budget and optmization metric
-search_space.add_budget(param.Budget.TIME_IN_H, 24)
+search_space.add_budget(param.Budget.RUNS, 5)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
-search_space.add_max_epochs_per_training_run(15)
+search_space.add_max_epochs_per_training_run(1)
 
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
 search_space.add_parameter(param.TextClassifier.DOCUMENT_EMBEDDINGS, sampling_func.choice, options=[DocumentRNNEmbeddings,
@@ -48,7 +48,6 @@ optimizer = optimizers.GridSearchOptimizer(search_space=search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
-                                                           base_path='resources/evaluation-trec-grid',
-                                                           optimizer=optimizer,
-                                                           search_space=search_space)
-param_selector.optimize()
+                                                           base_path='resources/evaluation-trec-grid-DRAFT')
+
+param_selector.optimize(search_space=search_space, optimizer=optimizer)

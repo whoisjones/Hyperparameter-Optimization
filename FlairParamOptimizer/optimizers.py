@@ -28,6 +28,7 @@ have to be overwritten:
     _get_configurations_for_single_embedding()      returns a list of configurations for one embedding.
 """
 
+
 class ParamOptimizer(object):
 
     def __init__(self, search_space: SearchSpace):
@@ -36,35 +37,32 @@ class ParamOptimizer(object):
         search_space._check_mandatory_parameters_are_set(optimizer_type=self.__class__.__name__)
 
     @abstractmethod
-    def _make_configurations(self):
+    def _make_configurations(self,
+                             parameter: dict,
+                             shuffle: bool,
+                             embedding_specific: bool):
         pass
 
     @abstractmethod
-    def _make_embedding_specific_configurations(self):
+    def _make_embedding_specific_configurations(self, parameters: dict):
         pass
 
     @abstractmethod
-    def _make_configurations_for_single_embedding(self):
+    def _make_configurations_for_single_embedding(self, parameters: dict):
         pass
 
 
 class GridSearchOptimizer(ParamOptimizer):
 
     def __init__(self, search_space: SearchSpace, shuffle: bool = False):
-        super().__init__(
-            search_space
-        )
-        search_space.configurations = self._make_configurations(
-                                            parameters=search_space.parameters,
-                                            shuffle=shuffle,
-                                            embedding_specific=search_space.document_embedding_specific_parameters)
+        super().__init__(search_space)
+        search_space.configurations = self._make_configurations(parameters=search_space.parameters, shuffle=shuffle,
+                                                                embedding_specific=search_space.document_embedding_specific_parameters)
 
-    def _make_configurations(
-            self,
-            parameters : dict,
-            shuffle : bool,
-            embedding_specific: bool
-    ):
+    def _make_configurations(self,
+                             parameters: dict,
+                             shuffle: bool,
+                             embedding_specific: bool):
         if embedding_specific:
             configurations = self._make_embedding_specific_configurations(parameters)
         else:
@@ -82,34 +80,34 @@ class GridSearchOptimizer(ParamOptimizer):
         return all_configurations
 
     def _make_configurations_for_single_embedding(self, parameters: dict):
-        option_parameters, uniformly_sampled_parameters = self._split_up_configurations(parameters)
-        all_configurations = self._get_cartesian_product(option_parameters)
+        parameters_chosen_from_options, uniformly_sampled_parameters = self._split_up_parameters_based_on_sampling(parameters)
+        all_configurations = self._get_cartesian_product(parameters_chosen_from_options)
         # Since dicts are not sorted, uniformly sampled configurations have to be added later
         if uniformly_sampled_parameters:
-            all_configurations = self._add_uniformly_sampled_parameters(uniformly_sampled_parameters, all_configurations)
+            all_configurations = self._add_uniformly_sampled_parameters(uniformly_sampled_parameters,
+                                                                        all_configurations)
         return all_configurations
 
-    def _split_up_configurations(self, parameters: dict):
+    def _split_up_parameters_based_on_sampling(self, parameters: dict):
         parameter_options = []
         parameter_keys = []
         uniformly_sampled_parameters = {}
-
-        #TODO refactor with get operation
-        for parameter_name, configuration in parameters.items():
-            try:
-                parameter_options.append(configuration['options'])
-                parameter_keys.append(parameter_name)
-            except:
-                uniformly_sampled_parameters[parameter_name] = configuration
-
-        return (parameter_keys, parameter_options), uniformly_sampled_parameters
+        for parameter_key in parameters.keys():
+            config = parameters.get(parameter_key)
+            sampling_type = config['method'].__code__.co_varnames[0]
+            if sampling_type == "options":
+                parameter_options.append(config['options'])
+                parameter_keys.append(parameter_key)
+            else:
+                uniformly_sampled_parameters[parameter_key] = config
+        parameters_chosen_from_options = (parameter_keys, parameter_options)
+        return parameters_chosen_from_options, uniformly_sampled_parameters
 
     def _get_cartesian_product(self, parameters: tuple):
         parameter_keys, parameter_options = parameters
         all_configurations = []
         for configuration in itertools.product(*parameter_options):
             all_configurations.append(dict(zip(parameter_keys, configuration)))
-
         return all_configurations
 
     def _add_uniformly_sampled_parameters(self, bounds: dict, all_configurations: list):
@@ -117,7 +115,6 @@ class GridSearchOptimizer(ParamOptimizer):
             for parameter_name, configuration in bounds.items():
                 func = configuration['method']
                 item[parameter_name] = func(configuration['bounds'])
-
         return all_configurations
 
     def _flatten_grid(self, all_configurations: list):
@@ -126,15 +123,8 @@ class GridSearchOptimizer(ParamOptimizer):
 
 class RandomSearchOptimizer(GridSearchOptimizer):
 
-    def __init__(
-            self,
-            search_space: SearchSpace,
-    ):
-        super().__init__(
-            search_space,
-            shuffle=True
-        )
-
+    def __init__(self, search_space: SearchSpace):
+        super().__init__(search_space, shuffle=True)
 
 class GeneticOptimizer(ParamOptimizer):
 
@@ -145,20 +135,15 @@ class GeneticOptimizer(ParamOptimizer):
             cross_rate: float = 0.4,
             mutation_rate: float = 0.01,
     ):
-        super().__init__(
-            search_space
-        )
-
+        super().__init__(search_space)
         self.population_size = population_size
         self.cross_rate = cross_rate
         self.mutation_rate = mutation_rate
-        self.all_configurations = search_space.parameters
+        search_space.configurations = self._make_configurations(parameters=search_space.parameters,
+                                                                embedding_specific=search_space.document_embedding_specific_parameters)
+        search_space._set_additional_budget_parameters(population_size = population_size)
 
-        search_space.configurations = self._make_configurations(
-                                parameters=search_space.parameters,
-                                embedding_specific=search_space.document_embedding_specific_parameters)
-
-    def _make_configurations(self, parameters : dict, embedding_specific: str):
+    def _make_configurations(self, parameters: dict, embedding_specific: str):
         if embedding_specific:
             configurations = self._make_embedding_specific_configurations(parameters)
         else:
@@ -173,27 +158,24 @@ class GeneticOptimizer(ParamOptimizer):
 
     def _get_equal_amount_of_individuals_per_embedding(self, length_of_different_embeddings: int) -> list:
         individuals_per_embedding = [self.population_size // length_of_different_embeddings +
-                                  (1 if x < self.population_size % length_of_different_embeddings else 0)
-                                  for x in range (length_of_different_embeddings)]
+                                     (1 if x < self.population_size % length_of_different_embeddings else 0)
+                                     for x in range(length_of_different_embeddings)]
         return individuals_per_embedding
 
     def _make_configurations_for_each_embedding(self, parameters: dict, individuals_per_embedding: list):
         configurations = []
-        for (single_embedding, parameters_for_embedding), individuals_per_group in zip(parameters.items(),
-                                                                          individuals_per_embedding):
-            configurations.append(self._make_configurations_for_single_embedding(parameters_for_embedding, population_size=individuals_per_group))
-        configurations = self._flatten_grid(configurations)
+        for (embedding_type, parameters_for_embedding), individuals_single_embedding in zip(parameters.items(), individuals_per_embedding):
+            for _ in range(individuals_single_embedding):
+                configurations_for_single_embedding = self._make_configurations_for_single_embedding(parameters_for_embedding)
+                configurations.append(configurations_for_single_embedding)
         return configurations
 
-    def _make_configurations_for_single_embedding(self, parameters: dict, population_size: int):
-        individuals = []
-        for each in range(population_size):
-            individual = {}
-            for parameter_name, value_range in parameters.items():
-                parameter_value = self._sample_parameter_from(**value_range)
-                individual[parameter_name] = parameter_value
-            individuals.append(individual)
-        return individuals
+    def _make_configurations_for_single_embedding(self, parameters: dict):
+        configuration = {}
+        for parameter_name, value_range in parameters.items():
+            parameter_value = self._sample_parameter_from(**value_range)
+            configuration[parameter_name] = parameter_value
+        return configuration
 
     def _sample_parameter_from(self, **kwargs):
         sampling_function = kwargs.get('method')
@@ -202,45 +184,46 @@ class GeneticOptimizer(ParamOptimizer):
         training_parameter = sampling_function(value_range)
         return training_parameter
 
-    def _flatten_grid(self, configurations: list):
-        return [item for config in configurations for item in config]
-
     def _evolve_required(self, current_run: int):
         if current_run % (self.population_size) == (self.population_size - 1):
             return True
         else:
             return False
 
-    def _evolve(self):
-        parent_population = self._get_formatted_population()
-        selected_population = self._select()
+    def _evolve(self, search_space: SearchSpace, current_results: dict):
+        parent_population = self._get_parent_population(search_space.configurations)
+        selected_population = self._select(search_space.configurations, current_results)
         for child in selected_population:
             child = self._crossover(child, parent_population)
             child = self._mutate(child)
             self.configurations.append(child)
 
-    def _get_formatted_population(self):
-        formatted = {}
-        for embedding in self.configurations[-self.population_size:]:
+    def _get_parent_population(self, configurations: list) -> dict:
+        parent_population = {}
+        for embedding in configurations[-self.population_size:]:
             embedding_key = self._get_embedding_key(embedding)
             embedding_value = embedding
-            if embedding_key in formatted:
-                formatted[embedding_key].append(embedding_value)
+            if embedding_key in parent_population:
+                parent_population[embedding_key].append(embedding_value)
             else:
-                formatted[embedding_key] = [embedding_value]
-        return formatted
+                parent_population[embedding_key] = [embedding_value]
+        return parent_population
 
+    def _get_embedding_key(self, embedding: dict):
+        if self.document_embedding_specific_parameters == True:
+            embedding_key = embedding['document_embeddings'].__name__
+        else:
+            embedding_key = "universal_embeddings"
+        return embedding_key
 
-    def _select(self):
-        evo_probabilities = self._get_fitness()
-        return np.random.choice(self.configurations, size=self.population_size, replace=True, p=evo_probabilities)
+    def _select(self, configurations: list, current_results: dict) -> np.array:
+        evo_probabilities = self._get_fitness(current_results)
+        return np.random.choice(configurations, size=self.population_size, replace=True, p=evo_probabilities)
 
-
-    def _get_fitness(self):
-        fitness = np.asarray([individual['result'] for individual in self.results.values()])
-        probabilities = fitness / (sum([individual['result'] for individual in self.results.values()]))
+    def _get_fitness(self, results: dict):
+        fitness = np.asarray([individual['result'] for individual in results.values()])
+        probabilities = fitness / (sum([individual['result'] for individual in results.values()]))
         return probabilities
-
 
     def _crossover(self, child: dict, parent_population: dict):
         child_type = self._get_embedding_key(child)
@@ -252,7 +235,7 @@ class GeneticOptimizer(ParamOptimizer):
             cross_points = np.random.randint(0, 2, DNA_size).astype(np.bool)  # choose crossover points
             for (parameter, value), replace in zip(child.items(), cross_points):
                 if replace:
-                    child[parameter] = parent[parameter] # mating and produce one child
+                    child[parameter] = parent[parameter]  # mating and produce one child
         return child
 
     def _mutate(self, child: dict):
@@ -265,10 +248,3 @@ class GeneticOptimizer(ParamOptimizer):
                 elif self.all_configurations[child_type][parameter].get("bounds") is not None:
                     child[parameter] = func(self.all_configurations[child_type][parameter]['bounds'])
         return child
-
-    def _get_embedding_key(self, embedding: dict):
-        if self.document_embedding_specific_parameters == True:
-            embedding_key = embedding['document_embeddings'].__name__
-        else:
-            embedding_key = "universal_embeddings"
-        return embedding_key

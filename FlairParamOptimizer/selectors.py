@@ -8,7 +8,7 @@ from torch import cuda
 
 from FlairParamOptimizer.optimizers import *
 from FlairParamOptimizer.search_spaces import SearchSpace
-from FlairParamOptimizer.helpers import *
+from FlairParamOptimizer.task_specific_parameters import *
 
 import flair.nn
 from flair.data import Corpus
@@ -41,22 +41,22 @@ class ParamSelector():
         pass
 
     def optimize(self, optimizer: Optimizer, search_space: SearchSpace, train_on_multiple_gpus : bool = False):
-        technical_training_parameters = search_space._get_technical_training_parameters()
+        self.technical_training_parameters = search_space._get_technical_training_parameters()
         while search_space._budget_is_not_used_up():
-            current_configuration = search_space._get_current_configuration(self.current_run)
+            current_configuration = search_space._get_current_configuration(search_space.current_run)
             if train_on_multiple_gpus and self._sufficient_available_gpus():
                 self._perform_training_on_multiple_gpus(current_configuration)
             else:
-                self._perform_training(current_configuration, technical_training_parameters)
+                self._perform_training(current_configuration, current_run=search_space.current_run)
             if optimizer.__class__.__name__ == "GeneticOptimizer" \
-            and optimizer._evolve_required(current_run=self.current_run):
-                optimizer._evolve()
-            self.current_run += 1
+            and optimizer._evolve_required(current_run=search_space.current_run):
+                optimizer._evolve(search_space, self.results)
+            search_space.current_run += 1
         self._log_results()
 
-    def _perform_training(self, params: dict, technical_training_parameters: dict):
-        self.results[f"training-run-{self.current_run}"] = self._train(params, technical_training_parameters)
-        self._store_results(result=self.results[f"training-run-{self.current_run}"], current_run=self.current_run)
+    def _perform_training(self, params: dict, current_run: int):
+        self.results[f"training-run-{current_run}"] = self._train(params, self.technical_training_parameters)
+        self._store_results(result=self.results[f"training-run-{current_run}"], current_run=current_run)
 
     def _perform_training_on_multiple_gpus(self, params: dict):
         #TODO to be implemented

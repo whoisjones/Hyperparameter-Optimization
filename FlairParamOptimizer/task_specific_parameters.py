@@ -1,8 +1,10 @@
-from .parameters import *
+from .parameters_for_user_guidance import *
 import inspect
 from flair.trainers import ModelTrainer
 from flair.embeddings import TransformerDocumentEmbeddings, DocumentRNNEmbeddings, DocumentPoolEmbeddings
 from flair.models import SequenceTagger, TextClassifier
+
+EMBEDDING_SPECIFIC_PARAMETERS = ["DocumentPoolEmbeddings", "TransformerDocument", "DocumentRNNEmbeddings"]
 
 BUDGETS = [option.value for option in Budget]
 

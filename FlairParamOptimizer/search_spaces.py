@@ -3,8 +3,9 @@ from datetime import datetime
 from enum import Enum
 from abc import abstractmethod
 
+from .parameters import ParameterCollection
 from .sampling_functions import sampling_func
-from .parameters import Budget, EvaluationMetric, OptimizationValue
+from .parameters_for_user_guidance import Budget, EvaluationMetric, OptimizationValue
 
 """
 The Search Space object acts as a data object containing all configurations for the hyperparameter optimization.
@@ -40,12 +41,14 @@ Note following combinations of functions and type of parameter values are possib
 class SearchSpace(object):
 
     def __init__(self, document_embedding_specific_parameters: bool):
+        #self.parameters = ParameterCollection()
         self.parameters = {}
         self.configurations = []
         self.budget = {}
+        self.current_run = 0
         self.optimization_value = {}
         self.evaluation_metric = {}
-        self.max_epochs_per_training = 50
+        self.max_epochs_per_training_run = 50
         self.document_embedding_specific_parameters = document_embedding_specific_parameters
 
     @abstractmethod
@@ -118,19 +121,19 @@ class SearchSpace(object):
 
     def _is_generations_budget_left(self):
         #Decrease generations every X iterations (X is amount of individuals per generation)
-        if self.search_space.budget['generations'] > 1 \
-        and self.current_run % self.optimizer.population_size == 0\
+        if self.budget['generations'] > 1 \
+        and self.current_run % self.population_size == 0\
         and self.current_run != 0:
-            self.search_space.budget['generations'] -= 1
+            self.budget['generations'] -= 1
             return True
         #If last generation, budget is used up
-        elif self.search_space.budget['generations'] == 1 \
-        and self.current_run % self.optimizer.population_size == 0\
+        elif self.budget['generations'] == 1 \
+        and self.current_run % self.population_size == 0\
         and self.current_run != 0:
-            self.search_space.budget['generations'] -= 1
+            self.budget['generations'] -= 1
             return False
         #If enough budget, pass
-        elif self.search_space.budget['generations'] > 0:
+        elif self.budget['generations'] > 0:
             return True
 
     def _get_current_configuration(self, current_run: int):
@@ -138,10 +141,14 @@ class SearchSpace(object):
         return current_configuration
 
     def _get_technical_training_parameters(self):
-        model_training_parameters = {}
-        model_training_parameters["max_epochs"] = self.max_epochs_per_training
-        model_training_parameters["optimization_value"] = self.optimization_value
-        return model_training_parameters
+        technical_training_parameters = {}
+        technical_training_parameters["max_epochs"] = self.max_epochs_per_training_run
+        technical_training_parameters["optimization_value"] = self.optimization_value
+        return technical_training_parameters
+
+    def _set_additional_budget_parameters(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
 class TextClassifierSearchSpace(SearchSpace):
