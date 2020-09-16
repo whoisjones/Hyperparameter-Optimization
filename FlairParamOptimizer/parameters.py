@@ -1,9 +1,8 @@
-from enum import Enum
-
-from .parameter_groups import EMBEDDING_SPECIFIC_PARAMETERS
+import itertools
 from .sampling_functions import sampling_func
+from .parameter_listings.parameter_groups import EMBEDDINGS
 
-class ParameterCollection():
+class ParameterStorage():
 
     def __init__(self):
         pass
@@ -24,7 +23,20 @@ class ParameterCollection():
         getattr(self, embedding_key)[parameter_name] = parameter
 
 
-class Configuration():
+class TrainingConfigurations():
 
-    def __init__(self):
-        pass
+    def __init__(self, parameter_storage: ParameterStorage):
+        self.parameter_storage = parameter_storage
+
+    def make_configurations(self):
+        available_embeddings =  self.parameter_storage.__dict__.keys() & EMBEDDINGS
+        for embedding_type in available_embeddings:
+            embedding_parameters = getattr(self.parameter_storage, embedding_type)
+            keys = embedding_parameters.keys()
+
+    def _get_cartesian_product(self, parameters: tuple):
+        parameter_keys, parameter_options = parameters
+        all_configurations = []
+        for configuration in itertools.product(*parameter_options):
+            all_configurations.append(dict(zip(parameter_keys, configuration)))
+        return all_configurations

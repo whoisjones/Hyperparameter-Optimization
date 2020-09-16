@@ -34,10 +34,10 @@ class ParamOptimizer(object):
     def __init__(self, search_space: SearchSpace):
         self.results = {}
         self.document_embedding_specific_parameters = search_space.document_embedding_specific_parameters
-        search_space._check_mandatory_parameters_are_set(optimizer_type=self.__class__.__name__)
+        search_space._check_mandatory_parameters_are_set()
 
     @abstractmethod
-    def _make_configurations(self,
+    def _make_training_configurations(self,
                              parameter: dict,
                              shuffle: bool,
                              embedding_specific: bool):
@@ -56,10 +56,12 @@ class GridSearchOptimizer(ParamOptimizer):
 
     def __init__(self, search_space: SearchSpace, shuffle: bool = False):
         super().__init__(search_space)
-        search_space.configurations = self._make_configurations(parameters=search_space.parameters, shuffle=shuffle,
-                                                                embedding_specific=search_space.document_embedding_specific_parameters)
+        search_space._check_budget_type_matches_optimizer_type(self.__class__.__name__)
+        search_space.configurations.make_configurations()
+        #if shuffle:
+        #       random.shuffle(search_space.configurations)
 
-    def _make_configurations(self,
+    def _make_training_configurations(self,
                              parameters: dict,
                              shuffle: bool,
                              embedding_specific: bool):

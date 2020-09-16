@@ -1,12 +1,12 @@
 import time
+import logging
 from datetime import datetime
 from enum import Enum
 from abc import abstractmethod
 
-from .parameters import ParameterCollection
-from .sampling_functions import sampling_func
-from .parameters_for_user_guidance import Budget, EvaluationMetric, OptimizationValue, TextClassifier
-from .parameter_groups import EMBEDDING_SPECIFIC_PARAMETERS
+from .parameters import ParameterStorage, TrainingConfigurations
+from FlairParamOptimizer.parameter_listings.parameters_for_user_input import Budget, EvaluationMetric, OptimizationValue
+from FlairParamOptimizer.parameter_listings.parameter_groups import EMBEDDINGS
 
 """
 The Search Space object acts as a data object containing all configurations for the hyperparameter optimization.
@@ -39,11 +39,13 @@ Note following combinations of functions and type of parameter values are possib
     uniform     bounds=[0, 0.5]         take a uniform sample between lower and upper bound
 """
 
+log = logging.getLogger("flair")
+
 class SearchSpace(object):
 
     def __init__(self, document_embedding_specific_parameters: bool):
-        self.parameters = ParameterCollection()
-        self.configurations = []
+        self.parameters = ParameterStorage()
+        self.configurations = TrainingConfigurations(self.parameters)
         self.budget = {}
         self.current_run = 0
         self.optimization_value = {}
@@ -53,10 +55,8 @@ class SearchSpace(object):
 
     @abstractmethod
     def add_parameter(self,
-                      embedding_key: str,
                       parameter: Enum,
-                      sampling_function: sampling_func,
-                      kwargs):
+                      options):
         pass
 
     @abstractmethod
@@ -77,28 +77,24 @@ class SearchSpace(object):
     def add_max_epochs_per_training_run(self, max_epochs: int):
         self.max_epochs_per_training_run = max_epochs
 
-    def _check_mandatory_parameters_are_set(self, optimizer_type: str):
-        self._check_general_parameters(optimizer_type)
+    def _check_mandatory_parameters_are_set(self):
+        self._check_general_parameters()
         self._check_embeddings()
 
-    def _check_general_parameters(self, optimizer_type: str):
-        if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric]) \
-                and self._check_budget_type_matches_optimizer_type(optimizer_type):
+    def _check_general_parameters(self):
+        if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric, self.budget]):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
     def _check_embeddings(self):
-        search_
-        if
-
-
+        currently_set_parameters = self.parameters.__dict__.keys()
+        if not any(check in currently_set_parameters for check in EMBEDDINGS):
+            raise Exception("Embeddings are required but missing.")
 
     def _check_budget_type_matches_optimizer_type(self, optimizer_type: str):
-        if 'generations' in self.budget and optimizer_type == "GeneticOptimizer":
-            return True
-        elif 'runs' in self.budget or 'time_in_h' in self.budget:
-            return True
-        else:
-            return False
+        if 'generations' in self.budget and optimizer_type != "GeneticOptimizer":
+            log.info("Can't assign generations to a an Optimizer which is not a GeneticOptimizer. Switching to runs.")
+            self.budget["runs"] = self.budget["generations"]
+            del self.budget["generations"]
 
     def _budget_is_not_used_up(self):
         budget_type = self._get_budget_type(self.budget)
@@ -169,23 +165,15 @@ class TextClassifierSearchSpace(SearchSpace):
 
     def add_parameter(self,
                       parameter: Enum,
-                      sampling_function: sampling_func,
-                      **kwargs):
-        try:
-            sampling_func.validate_value_range(sampling_function, kwargs)
-            unprocessed_value_range = sampling_func.extract_value_range(sampling_function, kwargs)
-        except:
-            raise Exception("Please provide correct value ranges to your sampling function.")
-
-        embedding_key_and_value_range_arguments = self._extract_embedding_keys_and_value_range_arguments(parameter, unprocessed_value_range)
+                      options: list):
+        embedding_key_and_value_range_arguments = self._extract_embedding_keys_and_value_range_arguments(parameter)
 
         self.parameters.add(parameter_name=parameter.value,
-                            sampling_function=sampling_function,
                             **embedding_key_and_value_range_arguments)
 
     def _extract_embedding_keys_and_value_range_arguments(self, parameter: Enum, unprocessed_value_range: list,) -> list:
         function_arguments = {}
-        if parameter.__class__.__name__ in EMBEDDING_SPECIFIC_PARAMETERS:
+        if parameter.__class__.__name__ in EMBEDDINGS:
             function_arguments["embedding_key"] = parameter.__class__.__name__
             function_arguments["value_range"] = unprocessed_value_range
         else:
@@ -204,7 +192,6 @@ class SequenceTaggerSearchSpace(SearchSpace):
 
     def add_parameter(self,
                       parameter: Enum,
-                      sampling_function: sampling_func,
                       **kwargs):
         for key, values in kwargs.items():
-            self.parameters.update({parameter.value : {key: values, "method": sampling_function}})
+            self.parameters.update({parameter.value : {key: values}})

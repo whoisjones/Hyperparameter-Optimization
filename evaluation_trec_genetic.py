@@ -1,7 +1,7 @@
 from FlairParamOptimizer import optimizers, search_spaces, selectors
-import FlairParamOptimizer.parameters_for_user_guidance as param
+import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from FlairParamOptimizer.sampling_functions import sampling_func
-from flair.embeddings import DocumentPoolEmbeddings, DocumentRNNEmbeddings, TransformerDocumentEmbeddings
+from flair.embeddings import DocumentPoolEmbeddings, DocumentRNNEmbeddings
 from flair.datasets import TREC_6
 from torch.optim import SGD, Adam
 

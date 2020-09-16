@@ -1,7 +1,6 @@
 from FlairParamOptimizer import optimizers, search_spaces, selectors
-import FlairParamOptimizer.parameters_for_user_guidance as param
+import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from FlairParamOptimizer.sampling_functions import sampling_func
-from flair.embeddings import DocumentPoolEmbeddings, DocumentRNNEmbeddings, TransformerDocumentEmbeddings
 from flair.datasets import TREC_6
 from torch.optim import SGD, Adam
 
@@ -19,21 +18,21 @@ search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 search_space.add_max_epochs_per_training_run(1)
 
 #Depending on your downstream task, add embeddings and specify these with the respective Parameters below
-search_space.add_parameter(param.ModelTrainer.LEARNING_RATE, sampling_func.choice, options=[0.01, 0.05, 0.1])
-search_space.add_parameter(param.ModelTrainer.MINI_BATCH_SIZE, sampling_func.choice, options=[16, 32, 64])
-search_space.add_parameter(param.ModelTrainer.ANNEAL_FACTOR, sampling_func.choice, options=[0.25, 0.5])
-search_space.add_parameter(param.ModelTrainer.OPTIMIZER, sampling_func.choice, options=[SGD, Adam])
-search_space.add_parameter(param.Optimizer.WEIGHT_DECAY, sampling_func.choice, options=[1e-2, 0])
+search_space.add_parameter(param.ModelTrainer.LEARNING_RATE, options=[0.01, 0.05, 0.1])
+search_space.add_parameter(param.ModelTrainer.MINI_BATCH_SIZE, options=[16, 32, 64])
+search_space.add_parameter(param.ModelTrainer.ANNEAL_FACTOR, options=[0.25, 0.5])
+search_space.add_parameter(param.ModelTrainer.OPTIMIZER, options=[SGD, Adam])
+search_space.add_parameter(param.Optimizer.WEIGHT_DECAY, options=[1e-2, 0])
 
 #Define parameters for document embeddings RNN
-search_space.add_parameter(param.DocumentRNNEmbeddings.HIDDEN_SIZE, sampling_func.choice, options=[128, 256, 512])
-search_space.add_parameter(param.DocumentRNNEmbeddings.DROPOUT, sampling_func.uniform, bounds=[0, 0.5])
-search_space.add_parameter(param.DocumentRNNEmbeddings.REPROJECT_WORDS, sampling_func.choice, options=[True, False])
-search_space.add_parameter(param.DocumentRNNEmbeddings.WORD_EMBEDDINGS, sampling_func.choice, options=[['glove'], ['en'], ['en', 'glove']])
+search_space.add_parameter(param.DocumentRNNEmbeddings.HIDDEN_SIZE, options=[128, 256, 512])
+search_space.add_parameter(param.DocumentRNNEmbeddings.DROPOUT, options=[0, 0.1, 0.2, 0.3, 0.4, 0.5])
+search_space.add_parameter(param.DocumentRNNEmbeddings.REPROJECT_WORDS, options=[True, False])
+search_space.add_parameter(param.DocumentRNNEmbeddings.WORD_EMBEDDINGS, options=[['glove'], ['en'], ['en', 'glove']])
 
 #Define parameters for document embeddings Pool
-search_space.add_parameter(param.DocumentPoolEmbeddings.WORD_EMBEDDINGS, sampling_func.choice, options=[['glove'], ['en'], ['en', 'glove']])
-search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, sampling_func.choice, options=['mean', 'max', 'min'])
+search_space.add_parameter(param.DocumentPoolEmbeddings.WORD_EMBEDDINGS, options=[['glove'], ['en'], ['en', 'glove']])
+search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, options=['mean', 'max', 'min'])
 
 #Define parameters for Transformers
 #search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, sampling_func.choice, options=["bert-base-uncased", "distilbert-base-uncased"])

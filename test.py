@@ -1,8 +1,8 @@
 import unittest
 
-from FlairParamOptimizer.search_spaces import TextClassifierSearchSpace, SequenceTaggerSearchSpace
+from FlairParamOptimizer.search_spaces import TextClassifierSearchSpace
 from FlairParamOptimizer.sampling_functions import sampling_func
-import FlairParamOptimizer.parameters_for_user_guidance as param
+import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 
 class TestSearchSpaces(unittest.TestCase):
 
