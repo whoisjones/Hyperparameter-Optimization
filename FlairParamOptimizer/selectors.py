@@ -8,7 +8,7 @@ from torch import cuda
 
 from FlairParamOptimizer.optimizers import *
 from FlairParamOptimizer.search_spaces import SearchSpace
-from FlairParamOptimizer.task_specific_parameters import *
+from FlairParamOptimizer.parameter_groups import *
 
 import flair.nn
 from flair.data import Corpus

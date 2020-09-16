@@ -17,12 +17,9 @@ search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 search_space.add_max_epochs_per_training_run(20)
 
-search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, sampling_func.choice, options=[
-                                                                            [WordEmbeddings('glove')],
-                                                                            [WordEmbeddings('en')],
-                                                                            [WordEmbeddings('en'),
-                                                                             WordEmbeddings('glove')]
-                                                                            ])
+search_space.add_embeddings(options=[[WordEmbeddings('glove')],
+                                     [WordEmbeddings('en')],
+                                     [WordEmbeddings('en'), WordEmbeddings('glove')]])
 search_space.add_parameter(param.SequenceTagger.HIDDEN_SIZE, sampling_func.choice, options=[128, 256, 512])
 search_space.add_parameter(param.SequenceTagger.DROPOUT, sampling_func.uniform, bounds=[0, 0.5])
 search_space.add_parameter(param.SequenceTagger.WORD_DROPOUT, sampling_func.choice, options=[0, 0.01, 0.05, 0.1])

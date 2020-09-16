@@ -6,7 +6,7 @@ from abc import abstractmethod
 from .parameters import ParameterCollection
 from .sampling_functions import sampling_func
 from .parameters_for_user_guidance import Budget, EvaluationMetric, OptimizationValue, TextClassifier
-from .task_specific_parameters import EMBEDDING_SPECIFIC_PARAMETERS
+from .parameter_groups import EMBEDDING_SPECIFIC_PARAMETERS
 
 """
 The Search Space object acts as a data object containing all configurations for the hyperparameter optimization.
@@ -59,6 +59,10 @@ class SearchSpace(object):
                       kwargs):
         pass
 
+    @abstractmethod
+    def add_embeddings(self, options: list):
+        pass
+
     def add_budget(self, budget: Budget, amount):
         self.budget[budget.value] = amount
         if budget.value == "time_in_h":
@@ -73,14 +77,20 @@ class SearchSpace(object):
     def add_max_epochs_per_training_run(self, max_epochs: int):
         self.max_epochs_per_training_run = max_epochs
 
-    def _check_document_embeddings_are_set(self, parameter: Enum):
-        if (parameter.name != "DOCUMENT_EMBEDDINGS" and not self.parameters):
-            raise Exception("Please set document embeddings first in order to assign embeddings specific parameters later.")
-
     def _check_mandatory_parameters_are_set(self, optimizer_type: str):
+        self._check_general_parameters(optimizer_type)
+        self._check_embeddings()
+
+    def _check_general_parameters(self, optimizer_type: str):
         if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric]) \
                 and self._check_budget_type_matches_optimizer_type(optimizer_type):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
+
+    def _check_embeddings(self):
+        search_
+        if
+
+
 
     def _check_budget_type_matches_optimizer_type(self, optimizer_type: str):
         if 'generations' in self.budget and optimizer_type == "GeneticOptimizer":
@@ -167,70 +177,20 @@ class TextClassifierSearchSpace(SearchSpace):
         except:
             raise Exception("Please provide correct value ranges to your sampling function.")
 
-        """
-        try:
-            self._check_document_embeddings_are_set(parameter)
-        except:
-            raise Exception("Document Embeddings have to be set first.")
-        """
+        embedding_key_and_value_range_arguments = self._extract_embedding_keys_and_value_range_arguments(parameter, unprocessed_value_range)
 
-        processed_embedding_keys_and_value_ranges = self._extract_embedding_keys_and_value_ranges(parameter, unprocessed_value_range)
+        self.parameters.add(parameter_name=parameter.value,
+                            sampling_function=sampling_function,
+                            **embedding_key_and_value_range_arguments)
 
-        for embedding_key, value_range in processed_embedding_keys_and_value_ranges:
-            self.parameters.add(embedding_key=embedding_key,
-                                parameter_name=parameter.value,
-                                sampling_function=sampling_function,
-                                value_range=value_range)
-
-    def _extract_embedding_keys_and_value_ranges(self, parameter: Enum, unprocessed_value_range: list) -> list:
-        if parameter.name == TextClassifier.DOCUMENT_EMBEDDINGS.name:
-            embedding_keys = [document_embedding.__name__ for document_embedding in unprocessed_value_range]
-            value_ranges = [[document_embedding_class] for document_embedding_class in unprocessed_value_range]
-        elif parameter.__class__.__name__ in EMBEDDING_SPECIFIC_PARAMETERS:
-            embedding_keys = [parameter.__class__.__name__]
-            value_ranges = [unprocessed_value_range]
+    def _extract_embedding_keys_and_value_range_arguments(self, parameter: Enum, unprocessed_value_range: list,) -> list:
+        function_arguments = {}
+        if parameter.__class__.__name__ in EMBEDDING_SPECIFIC_PARAMETERS:
+            function_arguments["embedding_key"] = parameter.__class__.__name__
+            function_arguments["value_range"] = unprocessed_value_range
         else:
-            embedding_keys = ["GeneralParameters"]
-            value_ranges = [unprocessed_value_range]
-        processed_embedding_keys_and_value_ranges = list(zip(embedding_keys, value_ranges))
-        return processed_embedding_keys_and_value_ranges
-
-    def _insert_document_embeddings_hierarchy(self,
-                                              parameter: Enum,
-                                              func: sampling_func,
-                                              options):
-        try:
-            for embedding in options:
-                self.parameters[embedding.__name__] = {parameter.value: {"options": [embedding], "method": func}}
-        except:
-            raise Exception("Document embeddings only takes options as arguments")
-
-    def _insert_parameters(self,
-                           parameter: Enum,
-                           func: sampling_func,
-                           kwargs):
-        if "Document" in parameter.__class__.__name__:
-            self._insert_embedding_specific_parameter(parameter, func, kwargs)
-        else:
-            self._insert_universal_parameter(parameter, func, kwargs)
-
-    def _insert_embedding_specific_parameter(self,
-                                             parameter: Enum,
-                                             func: sampling_func,
-                                             kwargs):
-        try:
-            for key, values in kwargs.items():
-                self.parameters[parameter.__class__.__name__].update({parameter.value: {key: values, "method": func}})
-        except:
-            raise Exception("If your want to assign document embedding specific parameters, make sure it is included in the search space.")
-
-    def _insert_universal_parameter(self,
-                                    parameter: Enum,
-                                    func: sampling_func,
-                                    kwargs):
-        for embedding in self.parameters:
-            for key, values in kwargs.items():
-                self.parameters[embedding].update({parameter.value: {key: values, "method": func}})
+            function_arguments["value_range"] = unprocessed_value_range
+        return function_arguments
 
 
 class SequenceTaggerSearchSpace(SearchSpace):
