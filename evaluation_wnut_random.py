@@ -1,4 +1,4 @@
-from FlairParamOptimizer import search_strategies, search_spaces, selectors
+from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from FlairParamOptimizer.sampling_functions import sampling_func
 from flair.embeddings import WordEmbeddings
@@ -32,9 +32,9 @@ search_space.add_parameter(param.SequenceTagger.REPROJECT_EMBEDDINGS, sampling_f
 
 optimizer = search_strategies.RandomSearch(search_space=search_space)
 
-param_selector = selectors.SequenceTaggerParamSelector(corpus=corpus,
-                                                       base_path="resources/evaluation_wnut_random",
-                                                       search_space=search_space,
-                                                       optimizer=optimizer)
+param_selector = orchestrator.SequenceTaggerOrchestrator(corpus=corpus,
+                                                         base_path="resources/evaluation_wnut_random",
+                                                         search_space=search_space,
+                                                         optimizer=optimizer)
 
 param_selector.optimize()

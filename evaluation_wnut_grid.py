@@ -1,4 +1,4 @@
-from FlairParamOptimizer import search_strategies, search_spaces, selectors
+from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from flair.embeddings import WordEmbeddings
 
@@ -29,9 +29,9 @@ search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordE
 
 search_strategy.make_configurations(search_space)
 
-param_selector = selectors.SequenceTaggerParamSelector(corpus=corpus,
-                                                       base_path="resources/evaluation_wnut_grid",
-                                                       search_space=search_space,
-                                                       optimizer=optimizer)
+param_selector = orchestrator.SequenceTaggerOrchestrator(corpus=corpus,
+                                                         base_path="resources/evaluation_wnut_grid",
+                                                         search_space=search_space,
+                                                         optimizer=optimizer)
 
 param_selector.optimize()

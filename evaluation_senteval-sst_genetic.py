@@ -1,4 +1,4 @@
-from FlairParamOptimizer import search_strategies, search_spaces, selectors
+from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from FlairParamOptimizer.sampling_functions import sampling_func
 from flair.embeddings import DocumentPoolEmbeddings, DocumentRNNEmbeddings, TransformerDocumentEmbeddings
@@ -48,8 +48,8 @@ search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, sampl
 optimizer = search_strategies.EvolutionarySearch(search_space=search_space, population_size=8)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
-param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
-                                                           base_path='resources/evaluation-senteval-sst-genetic',
-                                                           optimizer=optimizer,
-                                                           search_space=search_space)
+param_selector = orchestrator.TextClassificationOrchestrator(corpus=corpus,
+                                                             base_path='resources/evaluation-senteval-sst-genetic',
+                                                             optimizer=optimizer,
+                                                             search_space=search_space)
 param_selector.optimize()

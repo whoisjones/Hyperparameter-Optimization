@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from abc import abstractmethod
 
-from .parameters import ParameterStorage, TrainingConfigurations
+from .parameter_collections import ParameterStorage, TrainingConfigurations
 from FlairParamOptimizer.parameter_listings.parameters_for_user_input import Budget, EvaluationMetric, OptimizationValue
 from FlairParamOptimizer.parameter_listings.parameter_groups import EMBEDDINGS
 
@@ -15,7 +15,7 @@ class SearchSpace(object):
     def __init__(self, has_document_embedding_specific_parameters: bool):
         self.parameter_storage = ParameterStorage()
         self.training_configurations = TrainingConfigurations()
-        self.budget = {}
+        self.budget = Budget()
         self.current_run = 0
         self.optimization_value = {}
         self.evaluation_metric = {}
@@ -28,10 +28,8 @@ class SearchSpace(object):
                       options):
         pass
 
-    def add_budget(self, budget: Budget, amount):
-        self.budget[budget.value] = amount
-        if budget.value == "time_in_h":
-            self.start_time = time.time()
+    def add_budget(self, budget: Budget, amount: int):
+        self.budget.add(budget_type=budget.value, amount=amount)
 
     def add_optimization_value(self, optimization_value: OptimizationValue):
         self.optimization_value = optimization_value.value
@@ -44,7 +42,7 @@ class SearchSpace(object):
 
     def check_completeness(self, search_strategy: str):
         self._check_mandatory_parameters_are_set()
-        self._check_budget_type_matches_optimizer_type(search_strategy)
+        self._check_budget_type_matches_search_strategy(search_strategy)
 
     def _check_mandatory_parameters_are_set(self):
         self._check_steering_parameters()
@@ -60,68 +58,10 @@ class SearchSpace(object):
         if not any(check in currently_set_parameters for check in EMBEDDINGS):
             raise Exception("Embeddings are required but missing.")
 
-    def _check_budget_type_matches_optimizer_type(self, search_strategy: str):
-        if 'generations' in self.budget and search_strategy != "EvolutionarySearch":
+    def _check_budget_type_matches_search_strategy(self, search_strategy: str):
+        if 'generations' in self.budget.budget_type and search_strategy != "EvolutionarySearch":
             log.info("Can't assign generations to a an Optimizer which is not a GeneticOptimizer. Switching to runs.")
-            self.budget["runs"] = self.budget["generations"]
-            del self.budget["generations"]
-
-    def _budget_is_not_used_up(self):
-        budget_type = self._get_budget_type(self.budget)
-        if budget_type == 'time_in_h':
-            return self._is_time_budget_left()
-        elif budget_type == 'runs':
-            return self._is_runs_budget_left()
-        elif budget_type == 'generations':
-            return self._is_generations_budget_left()
-
-    def _get_budget_type(self, budget: dict):
-        if len(budget) == 1:
-            for budget_type in budget.keys():
-                return budget_type
-        else:
-            raise Exception('Budget has more than 1 parameter.')
-
-    def _is_time_budget_left(self):
-        time_passed_since_start = datetime.fromtimestamp(time.time()) - datetime.fromtimestamp(self.start_time)
-        if (time_passed_since_start.total_seconds()) / 3600 < self.budget['time_in_h']:
-            return True
-        else:
-            return False
-
-    def _is_runs_budget_left(self):
-        if self.budget['runs'] > 0:
-            self.budget['runs'] -= 1
-            return True
-        else:
-            return False
-
-    def _is_generations_budget_left(self):
-        #Decrease generations every X iterations (X is amount of individuals per generation)
-        if self.budget['generations'] > 1 \
-        and self.current_run % self.population_size == 0\
-        and self.current_run != 0:
-            self.budget['generations'] -= 1
-            return True
-        #If last generation, budget is used up
-        elif self.budget['generations'] == 1 \
-        and self.current_run % self.population_size == 0\
-        and self.current_run != 0:
-            self.budget['generations'] -= 1
-            return False
-        #If enough budget, pass
-        elif self.budget['generations'] > 0:
-            return True
-
-    def _get_current_configuration(self, current_run: int):
-        current_configuration = self.training_configurations[current_run]
-        return current_configuration
-
-    def _get_technical_training_parameters(self):
-        technical_training_parameters = {}
-        technical_training_parameters["max_epochs"] = self.max_epochs_per_training_run
-        technical_training_parameters["optimization_value"] = self.optimization_value
-        return technical_training_parameters
+            self.budget.budget_type = "runs"
 
     def _set_additional_budget_parameters(self, **kwargs):
         for key, value in kwargs.items():
@@ -162,3 +102,60 @@ class SequenceTaggerSearchSpace(SearchSpace):
                       parameter: Enum,
                       options: list):
         self.parameter_storage.add(parameter_name=parameter.value, value_range=options)
+
+class Budget(object):
+
+    def __init__(self):
+        self.internal_counter_for_generations_budget = 0
+        # Will be set if EvolutionarySearch is used
+        self.population_size = None
+
+    def add(self, budget_type: str, amount: int):
+        self.budget_type = budget_type
+        self.amount = amount
+        if budget_type == "time_in_h":
+            self.start_time = time.time()
+
+    def _is_not_used_up(self):
+        if self.budget_type == 'time_in_h':
+            is_used_up = self._is_time_budget_left()
+        elif self.budget_type == 'runs':
+            is_used_up = self._is_runs_budget_left()
+        elif self.budget_type == 'generations':
+            is_used_up = self._is_generations_budget_left()
+        self.internal_counter_for_generations_budget += 1
+        return is_used_up
+
+    def _is_time_budget_left(self):
+        time_passed_since_start = datetime.fromtimestamp(time.time()) - datetime.fromtimestamp(self.start_time)
+        if (time_passed_since_start.total_seconds()) / 3600 < self.amount:
+            return True
+        else:
+            return False
+
+    def _is_runs_budget_left(self):
+        if self.amount > 0:
+            self.amount -= 1
+            return True
+        else:
+            return False
+
+    def _is_generations_budget_left(self):
+        # Decrease generations every X iterations (X is amount of individuals per generation)
+        if self.amount > 1 \
+                and self.internal_counter_for_generations_budget % self.population_size == 0 \
+                and self.internal_counter_for_generations_budget != 0:
+            self.amount -= 1
+            return True
+        # If last generation, budget is used up
+        elif self.amount == 1 \
+                and self.internal_counter_for_generations_budget % self.population_size == 0 \
+                and self.internal_counter_for_generations_budget != 0:
+            self.amount -= 1
+            return False
+        # If enough budget, pass
+        elif self.amount > 0:
+            return True
+
+    def _set_population_size(self, population_size: int):
+        self.population_size = population_size

@@ -3,7 +3,7 @@ import random
 import numpy as np
 from random import randrange
 
-from FlairParamOptimizer.parameters import ParameterStorage
+from FlairParamOptimizer.parameter_collections import ParameterStorage
 from FlairParamOptimizer.search_spaces import SearchSpace
 
 class SearchStrategy(object):
@@ -49,102 +49,77 @@ class EvolutionarySearch(SearchStrategy):
 
     def make_configurations(self, search_space: SearchSpace):
         search_space.check_completeness(self.search_strategy)
-        search_space.training_configurations.make_evolutionary_configurations(search_space.parameter_storage)
-
-    def _make_embedding_specific_configurations(self, parameters: dict):
-        amount_individuals_per_embedding = self._get_equal_amount_of_individuals_per_embedding(len(parameters))
-        configurations = self._make_configurations_for_each_embedding(parameters, amount_individuals_per_embedding)
-        return configurations
-
-    def _get_equal_amount_of_individuals_per_embedding(self, length_of_different_embeddings: int) -> list:
-        individuals_per_embedding = [self.population_size // length_of_different_embeddings +
-                                     (1 if x < self.population_size % length_of_different_embeddings else 0)
-                                     for x in range(length_of_different_embeddings)]
-        return individuals_per_embedding
-
-    def _make_configurations_for_each_embedding(self, parameters: dict, individuals_per_embedding: list):
-        configurations = []
-        for (embedding_type, parameters_for_embedding), individuals_single_embedding in zip(parameters.items(), individuals_per_embedding):
-            for _ in range(individuals_single_embedding):
-                configurations_for_single_embedding = self._make_configurations_for_single_embedding(parameters_for_embedding)
-                configurations.append(configurations_for_single_embedding)
-        return configurations
-
-    def _make_configurations_for_single_embedding(self, parameters: dict):
-        configuration = {}
-        for parameter_name, value_range in parameters.items():
-            parameter_value = self._sample_parameter_from(**value_range)
-            configuration[parameter_name] = parameter_value
-        return configuration
-
-    def _sample_parameter_from(self, **kwargs):
-        sampling_function = kwargs.get('method')
-        accepted_attribute_from_function = sampling_function.__code__.co_varnames[0]
-        value_range = kwargs.get(accepted_attribute_from_function)
-        training_parameter = sampling_function(value_range)
-        return training_parameter
+        search_space.training_configurations.make_evolutionary_configurations(search_space.parameter_storage, self.population_size)
 
     def _evolve_required(self, current_run: int):
-        if current_run % (self.population_size) == (self.population_size - 1):
+        if current_run % (self.population_size) == 0:
             return True
         else:
             return False
 
     def _evolve(self, search_space: SearchSpace, current_results: dict):
-        parent_population = self._get_parent_population(search_space.training_configurations)
-        selected_population = self._select(search_space.training_configurations, current_results)
+        parent_population = self._get_parent_population(current_results)
+        selected_population = self._select(current_results)
         for child in selected_population:
             child = self._crossover(child, parent_population)
-            child = self._mutate(child)
+            child = self._mutate(child, search_space.parameter_storage)
             self.configurations.append(child)
 
-    def _get_parent_population(self, configurations: list) -> dict:
-        parent_population = {}
-        for embedding in configurations[-self.population_size:]:
+    def _get_parent_population(self, results: dict) -> dict:
+        parent_population = self._extract_configurations_from_results(results)
+        grouped_parent_population = self._group_by_embedding_keys(parent_population)
+        return grouped_parent_population
+
+    def _extract_configurations_from_results(self, results: dict) -> list:
+        configurations = []
+        for configuration in results.values():
+            configurations.append(configuration.get("params"))
+        return configurations
+
+    def _group_by_embedding_keys(self, parent_population: list) -> dict:
+        grouped_parent_population = {}
+        for embedding in parent_population:
             embedding_key = self._get_embedding_key(embedding)
             embedding_value = embedding
-            if embedding_key in parent_population:
-                parent_population[embedding_key].append(embedding_value)
+            if embedding_key in grouped_parent_population:
+                grouped_parent_population[embedding_key].append(embedding_value)
             else:
-                parent_population[embedding_key] = [embedding_value]
-        return parent_population
+                grouped_parent_population[embedding_key] = [embedding_value]
+        return grouped_parent_population
 
     def _get_embedding_key(self, embedding: dict):
-        if self.has_document_embedding_specific_parameters == True:
+        if embedding.get("document_embeddings") is not None:
             embedding_key = embedding['document_embeddings'].__name__
         else:
-            embedding_key = "universal_embeddings"
+            embedding_key = "GeneralParameters"
         return embedding_key
 
-    def _select(self, configurations: list, current_results: dict) -> np.array:
-        evo_probabilities = self._get_fitness(current_results)
-        return np.random.choice(configurations, size=self.population_size, replace=True, p=evo_probabilities)
+    def _select(self, current_results: dict) -> np.array:
+        current_configurations = [result.get("params") for result in current_results.values()]
+        evolution_probabilities = self._get_fitness(current_results)
+        return np.random.choice(current_configurations, size=self.population_size, replace=True, p=evolution_probabilities)
 
     def _get_fitness(self, results: dict):
-        fitness = np.asarray([individual['result'] for individual in results.values()])
-        probabilities = fitness / (sum([individual['result'] for individual in results.values()]))
+        fitness = np.asarray([configuration['result'] for configuration in results.values()])
+        probabilities = fitness / (sum([configuration['result'] for configuration in results.values()]))
         return probabilities
 
     def _crossover(self, child: dict, parent_population: dict):
         child_type = self._get_embedding_key(child)
-        population_size = len(parent_population[child_type])
+        configuration_with_same_embedding = len(parent_population[child_type])
         DNA_size = len(child)
         if np.random.rand() < self.cross_rate:
-            i_ = randrange(population_size)  # select another individual from pop
-            parent = parent_population[child_type][i_]
+            random_configuration = randrange(configuration_with_same_embedding)  # select another individual from pop
+            parent = parent_population[child_type][random_configuration]
             cross_points = np.random.randint(0, 2, DNA_size).astype(np.bool)  # choose crossover points
             for (parameter, value), replace in zip(child.items(), cross_points):
                 if replace:
                     child[parameter] = parent[parameter]  # mating and produce one child
         return child
 
-    def _mutate(self, child: dict):
+    def _mutate(self, child: dict, parameter_storage: ParameterStorage):
         child_type = self._get_embedding_key(child)
         for parameter in child.keys():
             if np.random.rand() < self.mutation_rate:
-                func = self.all_configurations[child_type][parameter]['method']
-                if self.all_configurations[child_type][parameter].get("options") is not None:
-                    child[parameter] = func(self.all_configurations[child_type][parameter]['options'])
-                elif self.all_configurations[child_type][parameter].get("bounds") is not None:
-                    child[parameter] = func(self.all_configurations[child_type][parameter]['bounds'])
+                child[parameter] = random.sample(getattr(parameter_storage, child_type).get(parameter), 1)
         return child

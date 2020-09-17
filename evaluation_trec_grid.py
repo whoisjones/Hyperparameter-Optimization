@@ -1,6 +1,5 @@
-from FlairParamOptimizer import search_strategies, search_spaces, selectors
+from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
-from FlairParamOptimizer.sampling_functions import sampling_func
 from flair.datasets import TREC_6
 from torch.optim import SGD, Adam
 
@@ -9,11 +8,10 @@ corpus = TREC_6()
 
 # 2.) create an search space
 search_space = search_spaces.TextClassifierSearchSpace()
-search_strategy = search_strategies.EvolutionarySearch()
+search_strategy = search_strategies.EvolutionarySearch(population_size=4, mutation_rate=1, cross_rate=1)
 
 # 3.) depending on your task add the respective parameters you want to optimize over
-#Define your budget and optmization metric
-search_space.add_budget(param.Budget.RUNS, 5)
+search_space.add_budget(param.Budget.GENERATIONS, 3)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 search_space.add_max_epochs_per_training_run(1)
@@ -41,8 +39,9 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, options=['mean'
 
 search_strategy.make_configurations(search_space)
 
-#Create parameter selector object and optimize by passing the optimizer object to the function
-param_selector = selectors.TextClassificationParamSelector(corpus=corpus,
-                                                           base_path='resources/evaluation-trec-grid-DRAFT')
+orchestrator = orchestrator.Orchestrator(corpus=corpus,
+                                         base_path='resources/evaluation-trec-grid-DRAFT',
+                                         search_space=search_space,
+                                         search_strategy=search_strategy)
 
-param_selector.optimize(search_space=search_space, optimizer=optimizer)
+orchestrator.optimize()
