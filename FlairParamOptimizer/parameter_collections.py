@@ -95,3 +95,6 @@ class TrainingConfigurations():
                                         (1 if x < number_of_configurations % number_of_different_embeddings else 0)
                                         for x in range(number_of_different_embeddings)]
         return configurations_per_embedding
+
+    def _add_configuration(self, configuration: dict):
+        self.configurations.append(configuration)

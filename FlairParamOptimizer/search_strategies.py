@@ -1,10 +1,13 @@
 from abc import abstractmethod
 import random
+import logging
 import numpy as np
 from random import randrange
 
 from FlairParamOptimizer.parameter_collections import ParameterStorage
 from FlairParamOptimizer.search_spaces import SearchSpace
+
+log = logging.getLogger("flair")
 
 class SearchStrategy(object):
 
@@ -58,12 +61,14 @@ class EvolutionarySearch(SearchStrategy):
             return False
 
     def _evolve(self, search_space: SearchSpace, current_results: dict):
+        log.info("Start evolution")
         parent_population = self._get_parent_population(current_results)
         selected_population = self._select(current_results)
         for child in selected_population:
             child = self._crossover(child, parent_population)
             child = self._mutate(child, search_space.parameter_storage)
-            self.configurations.append(child)
+            search_space.training_configurations._add_configuration(child)
+        log.info("Evolution completed.")
 
     def _get_parent_population(self, results: dict) -> dict:
         parent_population = self._extract_configurations_from_results(results)
@@ -84,12 +89,13 @@ class EvolutionarySearch(SearchStrategy):
             if embedding_key in grouped_parent_population:
                 grouped_parent_population[embedding_key].append(embedding_value)
             else:
-                grouped_parent_population[embedding_key] = [embedding_value]
+                #TODO fix list / dict bug
+                grouped_parent_population[embedding_key] = embedding_value
         return grouped_parent_population
 
     def _get_embedding_key(self, embedding: dict):
         if embedding.get("document_embeddings") is not None:
-            embedding_key = embedding['document_embeddings'].__name__
+            embedding_key = embedding.get('document_embeddings').__name__
         else:
             embedding_key = "GeneralParameters"
         return embedding_key
@@ -110,7 +116,7 @@ class EvolutionarySearch(SearchStrategy):
         DNA_size = len(child)
         if np.random.rand() < self.cross_rate:
             random_configuration = randrange(configuration_with_same_embedding)  # select another individual from pop
-            parent = parent_population[child_type][random_configuration]
+            parent = parent_population.get(child_type)[random_configuration]
             cross_points = np.random.randint(0, 2, DNA_size).astype(np.bool)  # choose crossover points
             for (parameter, value), replace in zip(child.items(), cross_points):
                 if replace:
@@ -121,5 +127,8 @@ class EvolutionarySearch(SearchStrategy):
         child_type = self._get_embedding_key(child)
         for parameter in child.keys():
             if np.random.rand() < self.mutation_rate:
-                child[parameter] = random.sample(getattr(parameter_storage, child_type).get(parameter), 1)
+                if parameter in getattr(parameter_storage, child_type):
+                    child[parameter] = random.sample(getattr(parameter_storage, child_type).get(parameter), 1)
+                elif parameter in getattr(parameter_storage, "GeneralParameters"):
+                    child[parameter] = random.sample(getattr(parameter_storage, "GeneralParameters").get(parameter), 1)
         return child
