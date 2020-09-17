@@ -1,4 +1,4 @@
-from FlairParamOptimizer import optimizers, search_spaces, selectors
+from FlairParamOptimizer import search_strategies, search_spaces, selectors
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from FlairParamOptimizer.sampling_functions import sampling_func
 from flair.embeddings import DocumentPoolEmbeddings, DocumentRNNEmbeddings
@@ -44,7 +44,7 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, sampling_func.c
 #search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, sampling_func.choice, options=[16, 32, 64])
 
 #Pass the search space to the optimizer object
-optimizer = optimizers.RandomSearchOptimizer(search_space=search_space)
+optimizer = search_strategies.RandomSearch(search_space=search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,

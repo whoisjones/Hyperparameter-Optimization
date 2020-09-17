@@ -11,5 +11,5 @@ class TestSearchSpaces(unittest.TestCase):
                                "values":[0.1, 0.2, 0.3]}
         search_space = TextClassifierSearchSpace()
         search_space.add_parameter(param.ModelTrainer.ANNEAL_FACTOR, provided_parameters.get("sampling_function"), options=provided_parameters.get("values"))
-        if search_space.document_embedding_specific_parameters == True:
+        if search_space.has_document_embedding_specific_parameters == True:
             pass

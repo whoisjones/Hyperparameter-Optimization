@@ -1,4 +1,4 @@
-from FlairParamOptimizer import optimizers, search_spaces, selectors
+from FlairParamOptimizer import search_strategies, search_spaces, selectors
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from FlairParamOptimizer.sampling_functions import sampling_func
 from flair.datasets import TREC_6
@@ -9,6 +9,7 @@ corpus = TREC_6()
 
 # 2.) create an search space
 search_space = search_spaces.TextClassifierSearchSpace()
+search_strategy = search_strategies.EvolutionarySearch()
 
 # 3.) depending on your task add the respective parameters you want to optimize over
 #Define your budget and optmization metric
@@ -38,8 +39,7 @@ search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, options=['mean'
 #search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, sampling_func.choice, options=["bert-base-uncased", "distilbert-base-uncased"])
 #search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, sampling_func.choice, options=[16, 32, 64])
 
-#Pass the search space to the optimizer object
-optimizer = optimizers.GridSearchOptimizer(search_space=search_space)
+search_strategy.make_configurations(search_space)
 
 #Create parameter selector object and optimize by passing the optimizer object to the function
 param_selector = selectors.TextClassificationParamSelector(corpus=corpus,

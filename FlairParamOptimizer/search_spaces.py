@@ -8,59 +8,24 @@ from .parameters import ParameterStorage, TrainingConfigurations
 from FlairParamOptimizer.parameter_listings.parameters_for_user_input import Budget, EvaluationMetric, OptimizationValue
 from FlairParamOptimizer.parameter_listings.parameter_groups import EMBEDDINGS
 
-"""
-The Search Space object acts as a data object containing all configurations for the hyperparameter optimization.
-We currently support two types of downstream task for hyperparameter optimization:
-    Text Classification
-    Sequence Labeling
-    
-Steering parameters which have to bet set independent of downstream task:
-    Steering params:                        function to use:
-    A budget preventing a long runtime      add_budget()
-    A evaluation metric for training        add_evaluation_metric()
-    An optimization value for training      add_optimization_value()
-    Max epochs per training run             add_max_epochs_training() (default: 50)
-    
-For text classification, please first set document embeddings since you probably add document specific embeddings
-
-Add parameters like this:
-
-import FlairParamOptimizer.hyperparameter.parameters as param
-from FlairParamOptimizer.hyperparameter.utils import func
-
-search_space.add_parameter(param.[TYPE OF PARAMETER TO BE SET].[CONCRETE PARAMETER],
-                           func.[FUNCTION TO PICK FROM VALUE RANGE],
-                           options=[LIST OF PARAMETER VALUES] or range=[BOUNDS OF PARAMETER VALUES])
-
-Note following combinations of functions and type of parameter values are possible:
-
-    function:   value range argument:   explanation:
-    choice      options=[1,2,3]         choose from different options
-    uniform     bounds=[0, 0.5]         take a uniform sample between lower and upper bound
-"""
-
 log = logging.getLogger("flair")
 
 class SearchSpace(object):
 
-    def __init__(self, document_embedding_specific_parameters: bool):
-        self.parameters = ParameterStorage()
-        self.configurations = TrainingConfigurations(self.parameters)
+    def __init__(self, has_document_embedding_specific_parameters: bool):
+        self.parameter_storage = ParameterStorage()
+        self.training_configurations = TrainingConfigurations()
         self.budget = {}
         self.current_run = 0
         self.optimization_value = {}
         self.evaluation_metric = {}
         self.max_epochs_per_training_run = 50
-        self.document_embedding_specific_parameters = document_embedding_specific_parameters
+        self.has_document_embedding_specific_parameters = has_document_embedding_specific_parameters
 
     @abstractmethod
     def add_parameter(self,
                       parameter: Enum,
                       options):
-        pass
-
-    @abstractmethod
-    def add_embeddings(self, options: list):
         pass
 
     def add_budget(self, budget: Budget, amount):
@@ -77,21 +42,26 @@ class SearchSpace(object):
     def add_max_epochs_per_training_run(self, max_epochs: int):
         self.max_epochs_per_training_run = max_epochs
 
-    def _check_mandatory_parameters_are_set(self):
-        self._check_general_parameters()
-        self._check_embeddings()
+    def check_completeness(self, search_strategy: str):
+        self._check_mandatory_parameters_are_set()
+        self._check_budget_type_matches_optimizer_type(search_strategy)
 
-    def _check_general_parameters(self):
-        if not all([self.budget, self.parameters, self.optimization_value, self.evaluation_metric, self.budget]):
+    def _check_mandatory_parameters_are_set(self):
+        self._check_steering_parameters()
+        if self.has_document_embedding_specific_parameters:
+            self._check_embeddings()
+
+    def _check_steering_parameters(self):
+        if not all([self.budget, self.parameter_storage, self.optimization_value, self.evaluation_metric, self.budget]):
             raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
     def _check_embeddings(self):
-        currently_set_parameters = self.parameters.__dict__.keys()
+        currently_set_parameters = self.parameter_storage.__dict__.keys()
         if not any(check in currently_set_parameters for check in EMBEDDINGS):
             raise Exception("Embeddings are required but missing.")
 
-    def _check_budget_type_matches_optimizer_type(self, optimizer_type: str):
-        if 'generations' in self.budget and optimizer_type != "GeneticOptimizer":
+    def _check_budget_type_matches_optimizer_type(self, search_strategy: str):
+        if 'generations' in self.budget and search_strategy != "EvolutionarySearch":
             log.info("Can't assign generations to a an Optimizer which is not a GeneticOptimizer. Switching to runs.")
             self.budget["runs"] = self.budget["generations"]
             del self.budget["generations"]
@@ -144,7 +114,7 @@ class SearchSpace(object):
             return True
 
     def _get_current_configuration(self, current_run: int):
-        current_configuration = self.configurations[current_run]
+        current_configuration = self.training_configurations[current_run]
         return current_configuration
 
     def _get_technical_training_parameters(self):
@@ -161,30 +131,28 @@ class SearchSpace(object):
 class TextClassifierSearchSpace(SearchSpace):
 
     def __init__(self):
-        super().__init__(document_embedding_specific_parameters=True)
+        super().__init__(has_document_embedding_specific_parameters=True)
 
     def add_parameter(self,
                       parameter: Enum,
                       options: list):
-        embedding_key_and_value_range_arguments = self._extract_embedding_keys_and_value_range_arguments(parameter)
+        embedding_key_and_value_range_arguments = self._extract_embedding_keys_and_value_range_arguments(parameter, options)
+        self.parameter_storage.add(parameter_name=parameter.value, **embedding_key_and_value_range_arguments)
 
-        self.parameters.add(parameter_name=parameter.value,
-                            **embedding_key_and_value_range_arguments)
-
-    def _extract_embedding_keys_and_value_range_arguments(self, parameter: Enum, unprocessed_value_range: list,) -> list:
+    def _extract_embedding_keys_and_value_range_arguments(self, parameter: Enum, options: list,) -> list:
         function_arguments = {}
         if parameter.__class__.__name__ in EMBEDDINGS:
             function_arguments["embedding_key"] = parameter.__class__.__name__
-            function_arguments["value_range"] = unprocessed_value_range
+            function_arguments["value_range"] = options
         else:
-            function_arguments["value_range"] = unprocessed_value_range
+            function_arguments["value_range"] = options
         return function_arguments
 
 
 class SequenceTaggerSearchSpace(SearchSpace):
 
     def __init__(self):
-        super().__init__(document_embedding_specific_parameters=False)
+        super().__init__(has_document_embedding_specific_parameters=False)
         self.tag_type = ""
 
     def add_tag_type(self, tag_type: str):
@@ -192,6 +160,5 @@ class SequenceTaggerSearchSpace(SearchSpace):
 
     def add_parameter(self,
                       parameter: Enum,
-                      **kwargs):
-        for key, values in kwargs.items():
-            self.parameters.update({parameter.value : {key: values}})
+                      options: list):
+        self.parameter_storage.add(parameter_name=parameter.value, value_range=options)

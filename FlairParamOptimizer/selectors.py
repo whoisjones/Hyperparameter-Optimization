@@ -6,7 +6,7 @@ from typing import Union
 from pathlib import Path
 from torch import cuda
 
-from FlairParamOptimizer.optimizers import *
+from FlairParamOptimizer.search_strategies import *
 from FlairParamOptimizer.search_spaces import SearchSpace
 from FlairParamOptimizer.parameter_listings.parameter_groups import *
 
