@@ -7,8 +7,8 @@ from torch.optim import SGD, Adam
 corpus = SENTEVAL_SST_GRANULAR()
 
 # 2.) create an search space
-search_space = search_spaces.TextClassifierSearchSpace()
-search_strategy = search_strategies.GridSearch()
+search_space = search_spaces.TextClassifierSearchSpace(multi_label=True)
+search_strategy = search_strategies.RandomSearch()
 
 # 3.) depending on your task add the respective parameters you want to optimize over
 search_space.add_budget(param.Budget.TIME_IN_H, 24)
@@ -40,7 +40,7 @@ search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, optio
 search_strategy.make_configurations(search_space)
 
 orchestrator = orchestrator.Orchestrator(corpus=corpus,
-                                         base_path='resources/evaluation-senteval-sst-grid',
+                                         base_path='resources/evaluation-senteval-sst-random',
                                          search_space=search_space,
                                          search_strategy=search_strategy)
 

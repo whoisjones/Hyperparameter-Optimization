@@ -95,12 +95,11 @@ class TextClassification(DownstreamTaskModel):
 
 class SequenceTagging(DownstreamTaskModel):
 
-    def __init__(self):
+    def __init__(self, tag_type: str):
         super().__init__()
-        self.tag_type = search_space.tag_type
-        self.tag_dictionary = self.corpus.make_tag_dictionary(self.tag_type)
+        self.tag_type = tag_type
 
-    def _set_up_model(self, params: dict):
+    def _set_up_model(self, params: dict, tag_dictionary):
 
         sequence_tagger_params = {
             key: params[key] for key in params if key in SEQUENCE_TAGGER_PARAMETERS
@@ -113,23 +112,25 @@ class SequenceTagging(DownstreamTaskModel):
         sequence_tagger_params['embeddings'] = embeddings
 
         tagger: SequenceTagger = SequenceTagger(
-            tag_dictionary=self.tag_dictionary,
+            tag_dictionary=tag_dictionary,
             tag_type=self.tag_type,
             **sequence_tagger_params,
         )
 
         return tagger
 
-    def _train(self, params: dict):
+    def _train(self, corpus: Corpus, params: dict, base_path: Path, max_epochs: int, optimization_value: str):
         """
         trains a sequence tagger model
         :param params: dict containing the parameters
         :return: dict containing result and configuration
         """
 
-        corpus = self.corpus
+        corpus = corpus
 
-        tagger = self._set_up_model(params=params)
+        tag_dictionary = corpus.make_tag_dictionary(self.tag_type)
+
+        tagger = self._set_up_model(params=params, tag_dictionary=tag_dictionary)
 
         training_params = {
             key: params[key] for key, value in params.items() if key in TRAINING_PARAMETERS
@@ -142,13 +143,13 @@ class SequenceTagging(DownstreamTaskModel):
             tagger, corpus, **model_trainer_parameters
         )
 
-        path = Path(self.base_path) / f"training-run-{self.current_run}"
+        path = base_path
 
         results = trainer.train(path,
-                      max_epochs=self.search_space.max_epochs_per_training,
-                      **training_params)
+                                max_epochs=max_epochs,
+                                **training_params)
 
-        if self.search_space.optimization_value == "score":
+        if optimization_value == "score":
             result = results['test_score']
         else:
             result = results['dev_loss_history'][-1]

@@ -70,8 +70,9 @@ class SearchSpace(object):
 
 class TextClassifierSearchSpace(SearchSpace):
 
-    def __init__(self):
+    def __init__(self, multi_label: bool = False):
         super().__init__(has_document_embedding_specific_parameters=True)
+        self.multi_label = multi_label
 
     def add_parameter(self,
                       parameter: Enum,

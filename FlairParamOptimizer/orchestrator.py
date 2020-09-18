@@ -44,9 +44,9 @@ class Orchestrator(object):
 
     def _get_downstream_task_model_from_class_name(self, downstream_task):
         if downstream_task == "TextClassifierSearchSpace":
-            model = TextClassification()
+            model = TextClassification(self.search_space.multi_label)
         elif downstream_task == "SequenceTaggerSearchSpace":
-            model = SequenceTagging()
+            model = SequenceTagging(self.search_space.tag_type)
         else:
             raise Exception("No known downstream task provided.")
         return model

@@ -7,7 +7,7 @@ from torch.optim import SGD, Adam
 corpus = SENTEVAL_SST_GRANULAR()
 
 # 2.) create an search space
-search_space = search_spaces.TextClassifierSearchSpace()
+search_space = search_spaces.TextClassifierSearchSpace(multi_label=True)
 search_strategy = search_strategies.EvolutionarySearch()
 
 # 3.) depending on your task add the respective parameters you want to optimize over

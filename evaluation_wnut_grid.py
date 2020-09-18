@@ -5,17 +5,17 @@ from flair.embeddings import WordEmbeddings
 from flair.data import Corpus
 from flair.datasets import WNUT_17
 
-corpus: Corpus = WNUT_17().downsample(0.1)
+corpus: Corpus = WNUT_17()
 
 search_space = search_spaces.SequenceTaggerSearchSpace()
-search_strategy = search_strategies.RandomSearch()
+search_strategy = search_strategies.GridSearch()
 
 search_space.add_tag_type("ner")
 
-search_space.add_budget(param.Budget.TIME_IN_H, 1)
+search_space.add_budget(param.Budget.TIME_IN_H, 24)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
-search_space.add_max_epochs_per_training_run(1)
+search_space.add_max_epochs_per_training_run(30)
 
 search_space.add_parameter(param.SequenceTagger.HIDDEN_SIZE, options=[128, 256, 512])
 search_space.add_parameter(param.SequenceTagger.DROPOUT, options=[0, 0.5])
@@ -29,9 +29,9 @@ search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordE
 
 search_strategy.make_configurations(search_space)
 
-param_selector = orchestrator.SequenceTaggerOrchestrator(corpus=corpus,
-                                                         base_path="resources/evaluation_wnut_grid",
-                                                         search_space=search_space,
-                                                         optimizer=optimizer)
+orchestrator = orchestrator.Orchestrator(corpus=corpus,
+                                           base_path="resources/evaluation_wnut_grid",
+                                           search_space=search_space,
+                                           search_strategy=search_strategy)
 
-param_selector.optimize()
+orchestrator.optimize()
