@@ -5,7 +5,7 @@ from flair.embeddings import WordEmbeddings
 from flair.data import Corpus
 from flair.datasets import WNUT_17
 
-corpus: Corpus = WNUT_17()
+corpus = WNUT_17()
 
 search_space = search_spaces.SequenceTaggerSearchSpace()
 search_strategy = search_strategies.RandomSearch()
