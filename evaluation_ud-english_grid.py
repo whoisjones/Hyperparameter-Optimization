@@ -5,14 +5,14 @@ from flair.embeddings import WordEmbeddings
 from flair.data import Corpus
 from flair.datasets import UD_ENGLISH
 
-corpus = UD_ENGLISH().downsample(0.01)
+corpus = UD_ENGLISH().downsample(0.2)
 
 search_space = search_spaces.SequenceTaggerSearchSpace()
 search_strategy = search_strategies.GridSearch()
 
 search_space.add_tag_type("ner")
 
-search_space.add_budget(param.Budget.TIME_IN_H, 24)
+search_space.add_budget(param.Budget.RUNS, 5)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
 search_space.add_max_epochs_per_training_run(1)
@@ -30,7 +30,7 @@ search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordE
 search_strategy.make_configurations(search_space)
 
 orchestrator = orchestrator.Orchestrator(corpus=corpus,
-                                           base_path="resources/evaluation_wnut_grid",
+                                           base_path="resources/evaluation_ud-eng_grid",
                                            search_space=search_space,
                                            search_strategy=search_strategy)
 
