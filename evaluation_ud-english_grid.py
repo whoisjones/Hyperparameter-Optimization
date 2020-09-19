@@ -3,9 +3,9 @@ import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
 from flair.embeddings import WordEmbeddings
 
 from flair.data import Corpus
-from flair.datasets import WNUT_17
+from flair.datasets import UD_ENGLISH
 
-corpus = WNUT_17().downsample(0.05)
+corpus = UD_ENGLISH().downsample(0.01)
 
 search_space = search_spaces.SequenceTaggerSearchSpace()
 search_strategy = search_strategies.GridSearch()
