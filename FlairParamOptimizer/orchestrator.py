@@ -67,11 +67,14 @@ class Orchestrator(object):
         current_run = len(self.results)
         training_run_number = f"training-run-{current_run}"
         base_path = self.base_path / training_run_number
-        self.results[training_run_number] = self.downstream_task_model._train(corpus=self.corpus,
-                                                                              params=params,
-                                                                              base_path= base_path,
-                                                                              max_epochs=self.search_space.max_epochs_per_training_run,
-                                                                              optimization_value=self.search_space.optimization_value)
+        try:
+            self.results[training_run_number] = self.downstream_task_model._train(corpus=self.corpus,
+                                                                                  params=params,
+                                                                                  base_path= base_path,
+                                                                                  max_epochs=self.search_space.max_epochs_per_training_run,
+                                                                                  optimization_value=self.search_space.optimization_value)
+        except RuntimeError:
+            self.results[training_run_number] = {'result': 0, 'params': params}
         self._store_results(result=self.results[training_run_number], current_run=current_run)
 
     def _sufficient_available_gpus(self):
