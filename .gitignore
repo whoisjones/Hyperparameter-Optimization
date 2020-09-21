@@ -40,7 +40,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit tests.py / coverage reports
+# Unit test_search_space.py / coverage reports
 htmlcov/
 .tox/
 .nox/
