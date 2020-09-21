@@ -66,7 +66,6 @@ class SequenceTagger(Enum):
     BETA = "beta"
 
 class TextClassifier(Enum):
-    DOCUMENT_EMBEDDINGS = "document_embeddings"
     BETA = "beta"
 
 """

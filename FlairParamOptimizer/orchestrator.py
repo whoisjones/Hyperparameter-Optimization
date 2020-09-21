@@ -39,7 +39,7 @@ class Orchestrator(object):
         self.results = {}
 
         # This is required because we'll calculate generations budget with modulo operator (decrease budget every X configurations)
-        if search_strategy.search_strategy == "EvolutionarySearch":
+        if search_strategy.search_strategy_name == "EvolutionarySearch":
             search_space.budget._set_population_size(search_strategy.population_size)
 
     def _get_downstream_task_model_from_class_name(self, downstream_task):
@@ -58,7 +58,7 @@ class Orchestrator(object):
                 self._perform_training_on_multiple_gpus(current_configuration)
             else:
                 self._perform_training(current_configuration)
-            if self.search_strategy.search_strategy == "EvolutionarySearch":
+            if self.search_strategy.search_strategy_name == "EvolutionarySearch":
                 if self.search_strategy._evolve_required(current_run=len(self.results)):
                     self.search_strategy._evolve(self.search_space, self.results)
         self._log_results()

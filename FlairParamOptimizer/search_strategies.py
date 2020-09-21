@@ -12,7 +12,7 @@ log = logging.getLogger("flair")
 class SearchStrategy(object):
 
     def __init__(self):
-        self.search_strategy = self.__class__.__name__
+        self.search_strategy_name = self.__class__.__name__
 
     @abstractmethod
     def make_configurations(self, parameter_storage: ParameterStorage):
@@ -26,7 +26,7 @@ class GridSearch(SearchStrategy):
         self.shuffle = shuffle
 
     def make_configurations(self, search_space: SearchSpace):
-        search_space.check_completeness(self.search_strategy)
+        search_space.check_completeness(self.search_strategy_name)
         search_space.training_configurations.make_grid_configurations(search_space.parameter_storage)
         if self.shuffle:
             random.shuffle(search_space.training_configurations.configurations)
@@ -51,7 +51,7 @@ class EvolutionarySearch(SearchStrategy):
         self.mutation_rate = mutation_rate
 
     def make_configurations(self, search_space: SearchSpace):
-        search_space.check_completeness(self.search_strategy)
+        search_space.check_completeness(self.search_strategy_name)
         search_space.training_configurations.make_evolutionary_configurations(search_space.parameter_storage, self.population_size)
 
     def _evolve_required(self, current_run: int):

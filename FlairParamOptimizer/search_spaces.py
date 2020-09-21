@@ -47,16 +47,25 @@ class SearchSpace(object):
     def _check_mandatory_parameters_are_set(self):
         self._check_steering_parameters()
         if self.has_document_embedding_specific_parameters:
-            self._check_embeddings()
+            self._check_embeddings_are_set()
 
     def _check_steering_parameters(self):
-        if not all([self.budget, self.parameter_storage, self.optimization_value, self.evaluation_metric, self.budget]):
-            raise Exception("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
+        if not all([self.budget, self.optimization_value, self.evaluation_metric]):
+            raise AttributeError("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
-    def _check_embeddings(self):
+        if self.parameter_storage.is_empty():
+            raise AttributeError("Parameters haven't been set.")
+
+    def _check_embeddings_are_set(self):
         currently_set_parameters = self.parameter_storage.__dict__.keys()
         if not any(check in currently_set_parameters for check in EMBEDDINGS):
-            raise Exception("Embeddings are required but missing.")
+            raise AttributeError("Embeddings are required but missing.")
+
+        union_of_embedding_types = [embedding for embedding in currently_set_parameters if embedding in EMBEDDINGS]
+        for embedding in union_of_embedding_types:
+            if not bool(getattr(self.parameter_storage, embedding).get("embeddings")) and embedding != "TransformerDocumentEmbeddings":
+                raise KeyError("Please set WordEmbeddings for DocumentEmbeddings.")
+
 
     def _check_budget_type_matches_search_strategy(self, search_strategy: str):
         if 'generations' in self.budget.budget_type and search_strategy != "EvolutionarySearch":

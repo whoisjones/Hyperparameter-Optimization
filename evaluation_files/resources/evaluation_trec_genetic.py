@@ -27,15 +27,15 @@ search_space.add_parameter(param.Optimizer.WEIGHT_DECAY, options=[1e-2, 0])
 search_space.add_parameter(param.DocumentRNNEmbeddings.HIDDEN_SIZE, options=[128, 256, 512])
 search_space.add_parameter(param.DocumentRNNEmbeddings.DROPOUT, options=[0, 0.1, 0.2, 0.3, 0.4, 0.5])
 search_space.add_parameter(param.DocumentRNNEmbeddings.REPROJECT_WORDS, options=[True, False])
-search_space.add_parameter(param.DocumentRNNEmbeddings.WORD_EMBEDDINGS, options=[['glove'], ['en'], ['en', 'glove']])
+#search_space.add_parameter(param.DocumentRNNEmbeddings.WORD_EMBEDDINGS, options=[['glove'], ['en'], ['en', 'glove']])
 
 #Define parameters for document embeddings Pool
-search_space.add_parameter(param.DocumentPoolEmbeddings.WORD_EMBEDDINGS, options=[['glove'], ['en'], ['en', 'glove']])
+#search_space.add_parameter(param.DocumentPoolEmbeddings.WORD_EMBEDDINGS, options=[['glove'], ['en'], ['en', 'glove']])
 search_space.add_parameter(param.DocumentPoolEmbeddings.POOLING, options=['mean', 'max', 'min'])
 
 #Define parameters for Transformers
-search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, options=["bert-base-uncased", "distilbert-base-uncased"])
-search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, options=[16, 32, 64])
+#search_space.add_parameter(param.TransformerDocumentEmbeddings.MODEL, options=["bert-base-uncased", "distilbert-base-uncased"])
+#search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, options=[16, 32, 64])
 
 search_strategy.make_configurations(search_space)
 

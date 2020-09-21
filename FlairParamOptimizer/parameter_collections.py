@@ -24,6 +24,10 @@ class ParameterStorage():
     def _append_to_existing_embedding_key(self, embedding_key: str, parameter_name: str, parameter: dict):
         getattr(self, embedding_key)[parameter_name] = parameter
 
+    def is_empty(self):
+        if not bool(self.__dict__):
+            return True
+
 
 class TrainingConfigurations():
 

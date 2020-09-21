@@ -40,7 +40,7 @@ search_space.add_parameter(param.TransformerDocumentEmbeddings.BATCH_SIZE, optio
 search_strategy.make_configurations(search_space)
 
 orchestrator = orchestrator.Orchestrator(corpus=corpus,
-                                         base_path='resources/evaluation-senteval-sst-grid',
+                                         base_path='../../resources/evaluation-senteval-sst-grid',
                                          search_space=search_space,
                                          search_strategy=search_strategy)
 
