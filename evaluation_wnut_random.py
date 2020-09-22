@@ -29,7 +29,7 @@ search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordE
 search_strategy.make_configurations(search_space)
 
 orchestrator = orchestrator.Orchestrator(corpus=corpus,
-                                           base_path="resources/evaluation_wnut_grid",
+                                           base_path="resources/evaluation_wnut_random",
                                            search_space=search_space,
                                            search_strategy=search_strategy)
 
