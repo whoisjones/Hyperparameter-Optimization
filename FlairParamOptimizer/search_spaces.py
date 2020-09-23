@@ -6,13 +6,13 @@ from abc import abstractmethod
 
 from .parameter_collections import ParameterStorage, TrainingConfigurations
 from FlairParamOptimizer.parameter_listings.parameters_for_user_input import Budget, EvaluationMetric, OptimizationValue
-from FlairParamOptimizer.parameter_listings.parameter_groups import EMBEDDINGS
+from FlairParamOptimizer.parameter_listings.parameter_groups import DOCUMENT_EMBEDDINGS
 
 log = logging.getLogger("flair")
 
 class SearchSpace(object):
 
-    def __init__(self, has_document_embedding_specific_parameters: bool):
+    def __init__(self):
         self.parameter_storage = ParameterStorage()
         self.training_configurations = TrainingConfigurations()
         self.budget = Budget()
@@ -20,12 +20,13 @@ class SearchSpace(object):
         self.optimization_value = {}
         self.evaluation_metric = {}
         self.max_epochs_per_training_run = 50
-        self.has_document_embedding_specific_parameters = has_document_embedding_specific_parameters
 
     @abstractmethod
-    def add_parameter(self,
-                      parameter: Enum,
-                      options):
+    def add_parameter(self, parameter: Enum, options):
+        pass
+
+    @abstractmethod
+    def check_completeness(self, search_strategy: str):
         pass
 
     def add_budget(self, budget: Budget, amount: int):
@@ -40,32 +41,12 @@ class SearchSpace(object):
     def add_max_epochs_per_training_run(self, max_epochs: int):
         self.max_epochs_per_training_run = max_epochs
 
-    def check_completeness(self, search_strategy: str):
-        self._check_mandatory_parameters_are_set()
-        self._check_budget_type_matches_search_strategy(search_strategy)
-
-    def _check_mandatory_parameters_are_set(self):
-        self._check_steering_parameters()
-        if self.has_document_embedding_specific_parameters:
-            self._check_embeddings_are_set()
-
     def _check_steering_parameters(self):
         if not all([self.budget, self.optimization_value, self.evaluation_metric]):
             raise AttributeError("Please provide a budget, parameters, a optimization value and a evaluation metric for an optimizer.")
 
         if self.parameter_storage.is_empty():
             raise AttributeError("Parameters haven't been set.")
-
-    def _check_embeddings_are_set(self):
-        currently_set_parameters = self.parameter_storage.__dict__.keys()
-        if not any(check in currently_set_parameters for check in EMBEDDINGS):
-            raise AttributeError("Embeddings are required but missing.")
-
-        union_of_embedding_types = [embedding for embedding in currently_set_parameters if embedding in EMBEDDINGS]
-        for embedding in union_of_embedding_types:
-            if not bool(getattr(self.parameter_storage, embedding).get("embeddings")) and embedding != "TransformerDocumentEmbeddings":
-                raise KeyError("Please set WordEmbeddings for DocumentEmbeddings.")
-
 
     def _check_budget_type_matches_search_strategy(self, search_strategy: str):
         if 'generations' in self.budget.budget_type and search_strategy != "EvolutionarySearch":
@@ -80,7 +61,7 @@ class SearchSpace(object):
 class TextClassifierSearchSpace(SearchSpace):
 
     def __init__(self, multi_label: bool = False):
-        super().__init__(has_document_embedding_specific_parameters=True)
+        super().__init__()
         self.multi_label = multi_label
 
     def add_parameter(self,
@@ -91,18 +72,33 @@ class TextClassifierSearchSpace(SearchSpace):
 
     def _extract_embedding_keys_and_value_range_arguments(self, parameter: Enum, options: list,) -> list:
         function_arguments = {}
-        if parameter.__class__.__name__ in EMBEDDINGS:
+        if parameter.__class__.__name__ in DOCUMENT_EMBEDDINGS:
             function_arguments["embedding_key"] = parameter.__class__.__name__
             function_arguments["value_range"] = options
         else:
             function_arguments["value_range"] = options
         return function_arguments
 
+    def check_completeness(self, search_strategy: str):
+        self._check_steering_parameters()
+        self._check_budget_type_matches_search_strategy(search_strategy)
+        self._check_document_embeddings_are_set()
+
+    def _check_document_embeddings_are_set(self):
+        currently_set_parameters = self.parameter_storage.__dict__.keys()
+        if not any(check in currently_set_parameters for check in DOCUMENT_EMBEDDINGS):
+            raise AttributeError("Embeddings are required but missing.")
+
+        union_of_embedding_types = [embedding for embedding in currently_set_parameters if embedding in DOCUMENT_EMBEDDINGS]
+        for embedding in union_of_embedding_types:
+            if not bool(getattr(self.parameter_storage, embedding).get("embeddings")) and embedding != "TransformerDocumentEmbeddings":
+                raise KeyError("Please set WordEmbeddings for DocumentEmbeddings.")
+
 
 class SequenceTaggerSearchSpace(SearchSpace):
 
     def __init__(self):
-        super().__init__(has_document_embedding_specific_parameters=False)
+        super().__init__()
         self.tag_type = ""
 
     def add_tag_type(self, tag_type: str):
@@ -112,6 +108,18 @@ class SequenceTaggerSearchSpace(SearchSpace):
                       parameter: Enum,
                       options: list):
         self.parameter_storage.add(parameter_name=parameter.value, value_range=options)
+
+    def check_completeness(self, search_strategy: str):
+        self._check_steering_parameters()
+        self._check_budget_type_matches_search_strategy(search_strategy)
+        self._check_word_embeddings_are_set()
+
+    def _check_word_embeddings_are_set(self):
+        if self.parameter_storage.GeneralParameters.get("embeddings"):
+            pass
+        else:
+            raise Exception("Word Embeddings haven't been set.")
+
 
 class Budget(object):
 

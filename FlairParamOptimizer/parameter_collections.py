@@ -1,6 +1,6 @@
 import itertools
 import random
-from .parameter_listings.parameter_groups import EMBEDDINGS
+from .parameter_listings.parameter_groups import DOCUMENT_EMBEDDINGS
 from flair.embeddings import DocumentRNNEmbeddings, TransformerDocumentEmbeddings, DocumentPoolEmbeddings
 
 class ParameterStorage():
@@ -16,7 +16,7 @@ class ParameterStorage():
             self._append_to_existing_embedding_key(embedding_key, parameter_name, value_range)
 
     def _create_new_embedding_key(self, parameter_name: str):
-        if parameter_name in EMBEDDINGS:
+        if parameter_name in DOCUMENT_EMBEDDINGS:
             setattr(self, parameter_name, {"document_embeddings":[eval(parameter_name)]})
         else:
             setattr(self, parameter_name, {})
@@ -53,8 +53,8 @@ class TrainingConfigurations():
         return parameter_dictionaries
 
     def _get_parameter_keys(self, parameter_storage: ParameterStorage):
-        embedding_specific_keys_in_parameter_storage = parameter_storage.__dict__.keys() & EMBEDDINGS
-        general_parameter_keys = parameter_storage.__dict__.keys() - EMBEDDINGS
+        embedding_specific_keys_in_parameter_storage = parameter_storage.__dict__.keys() & DOCUMENT_EMBEDDINGS
+        general_parameter_keys = parameter_storage.__dict__.keys() - DOCUMENT_EMBEDDINGS
         return embedding_specific_keys_in_parameter_storage, general_parameter_keys
 
     def _make_embedding_specific_parameter_dictionaries(self, embedding_keys: set, general_keys: set, parameter_storage: ParameterStorage) -> list:

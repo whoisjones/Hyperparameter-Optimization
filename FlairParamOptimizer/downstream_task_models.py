@@ -105,7 +105,7 @@ class SequenceTagging(DownstreamTaskModel):
             key: params[key] for key in params if key in SEQUENCE_TAGGER_PARAMETERS
         }
 
-        embedding_types = params['embeddings']
+        embedding_types = [WordEmbeddings(embedding) for embedding in params['embeddings']]
 
         embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
 
