@@ -9,13 +9,16 @@ def make_results():
     for task, results in all_results:
         x_values, y_values = extract_plot_data(results)
         macd = get_macd(y_values)
+        max_value = max(y_values)
+        max_id = [i for i, j in enumerate(y_values) if j == max(y_values)][0]
         exact, = plt.plot(x_values, y_values, label="Exact results")
         moving_avg, = plt.plot(x_values, macd, label="moving average")
+        max_value_dot, = plt.plot(max_id, max_value, 'ro')
         plt.ylabel("results")
         plt.xlabel("training run nr.")
         plt.xticks(np.arange(min(x_values), max(x_values) + 1, 20.0))
         plt.title(task)
-        plt.legend([exact, moving_avg], ['Exact results', 'Moving Average'])
+        plt.legend([exact, moving_avg, max_value_dot], ['Exact results', 'Moving Average', f"Max Value: ({max_id}, {round(max_value, 4)})"])
         plt.savefig(f"charts/{task}.png")
         plt.close()
 

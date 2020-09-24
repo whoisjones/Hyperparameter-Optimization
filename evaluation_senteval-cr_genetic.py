@@ -8,7 +8,7 @@ corpus = SENTEVAL_CR()
 
 # 2.) create an search space
 search_space = search_spaces.TextClassifierSearchSpace()
-search_strategy = search_strategies.EvolutionarySearch()
+search_strategy = search_strategies.EvolutionarySearch(population_size=8)
 
 # 3.) depending on your task add the respective parameters you want to optimize over
 search_space.add_budget(param.Budget.TIME_IN_H, 24)
