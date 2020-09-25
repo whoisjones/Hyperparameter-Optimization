@@ -16,7 +16,8 @@ def make_results():
         max_value_dot, = plt.plot(max_id, max_value, 'ro')
         plt.ylabel("results")
         plt.xlabel("training run nr.")
-        plt.xticks(np.arange(min(x_values), max(x_values) + 1, 20.0))
+        ticks = int(len(x_values) / 10)
+        plt.xticks(np.arange(min(x_values), max(x_values) + 1, ticks))
         plt.title(task)
         plt.legend([exact, moving_avg, max_value_dot], ['Exact results', 'Moving Average', f"Max Value: ({max_id}, {round(max_value, 4)})"])
         plt.savefig(f"charts/{task}.png")
@@ -27,9 +28,9 @@ def get_results_from_pickle_files() -> list:
     files = os.listdir("files")
     for pkl_file in files:
         path_to_pkl_file = f"files/{pkl_file}"
-        f = open(path_to_pkl_file, 'rb')
-        task = extract_task_name(pkl_file)
-        all_results.append((task, pickle.load(f)))
+        with open(path_to_pkl_file, 'rb') as f:
+            task = extract_task_name(pkl_file)
+            all_results.append((task, pickle.load(f)))
     return all_results
 
 def extract_task_name(file_name: str) -> str:
@@ -44,6 +45,10 @@ def extract_plot_data(results: dict):
 
 def get_macd(results: list, window_size: int = 25):
     left_pointer = 0
+    if len(results) > window_size:
+        pass
+    else:
+        window_size = int(len(results)/2)
     right_pointer = window_size
     macd = list(np.zeros(window_size - 1))
     for single_macd in range(window_size, len(results)+1):
