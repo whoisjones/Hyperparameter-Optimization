@@ -9,7 +9,7 @@ corpus = UD_ENGLISH().downsample(0.5)
 search_space = search_spaces.SequenceTaggerSearchSpace()
 search_strategy = search_strategies.RandomSearch()
 
-search_space.add_tag_type("ner")
+search_space.add_tag_type("pos")
 
 search_space.add_budget(param.Budget.TIME_IN_H, 24)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
@@ -30,7 +30,7 @@ search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, options=[['glov
 search_strategy.make_configurations(search_space)
 
 orchestrator = orchestrator.Orchestrator(corpus=corpus,
-                                           base_path="resources/evaluation_ud-eng_random",
+                                           base_path="resources/evaluation_ud-eng_random-v2",
                                            search_space=search_space,
                                            search_strategy=search_strategy)
 
