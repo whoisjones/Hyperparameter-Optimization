@@ -1,6 +1,6 @@
 from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
-from flair.embeddings import WordEmbeddings
+from flair.embeddings import WordEmbeddings, TransformerWordEmbeddings, ELMoEmbeddings, FlairEmbeddings
 
 from flair.datasets import WNUT_17
 
@@ -14,7 +14,7 @@ search_space.add_tag_type("ner")
 search_space.add_budget(param.Budget.TIME_IN_H, 24)
 search_space.add_evaluation_metric(param.EvaluationMetric.MICRO_F1_SCORE)
 search_space.add_optimization_value(param.OptimizationValue.DEV_SCORE)
-search_space.add_max_epochs_per_training_run(50)
+search_space.add_max_epochs_per_training_run(25)
 
 search_space.add_parameter(param.SequenceTagger.HIDDEN_SIZE, options=[128, 256, 512])
 search_space.add_parameter(param.SequenceTagger.DROPOUT, options=[0, 0.1, 0.2, 0.3])
@@ -23,9 +23,12 @@ search_space.add_parameter(param.SequenceTagger.RNN_LAYERS, options=[2, 3, 4, 5,
 search_space.add_parameter(param.SequenceTagger.USE_RNN, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.USE_CRF, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.REPROJECT_EMBEDDINGS, options=[True, False])
-search_space.add_parameter(param.SequenceTagger.WORD_EMBEDDINGS, options=[['glove'],
-                                                                          ['en'],
-                                                                          ['en', 'glove']])
+search_space.add_word_embeddings(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordEmbeddings('en'), WordEmbeddings('glove')]])
+"""
+[FlairEmbeddings('news-forward'), FlairEmbeddings('news-backward')],
+[TransformerWordEmbeddings()],
+[ELMoEmbeddings()]
+"""
 
 search_strategy.make_configurations(search_space)
 

@@ -26,6 +26,10 @@ class SearchSpace(object):
         pass
 
     @abstractmethod
+    def add_word_embeddings(self, parameter: Enum, options):
+        pass
+
+    @abstractmethod
     def check_completeness(self, search_strategy: str):
         pass
 
@@ -79,6 +83,12 @@ class TextClassifierSearchSpace(SearchSpace):
             function_arguments["value_range"] = options
         return function_arguments
 
+    def add_word_embeddings(self,
+                            parameter: Enum,
+                            options: list):
+        embedding_key_and_value_range_arguments = self._extract_embedding_keys_and_value_range_arguments(parameter, options)
+        self.parameter_storage.add(parameter_name=parameter.value, **embedding_key_and_value_range_arguments)
+
     def check_completeness(self, search_strategy: str):
         self._check_steering_parameters()
         self._check_budget_type_matches_search_strategy(search_strategy)
@@ -107,6 +117,12 @@ class SequenceTaggerSearchSpace(SearchSpace):
     def add_parameter(self,
                       parameter: Enum,
                       options: list):
+        self.parameter_storage.add(parameter_name=parameter.value, value_range=options)
+
+    def add_word_embeddings(self,
+                            parameter: Enum,
+                            options: list):
+
         self.parameter_storage.add(parameter_name=parameter.value, value_range=options)
 
     def check_completeness(self, search_strategy: str):
