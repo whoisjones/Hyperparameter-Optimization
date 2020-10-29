@@ -61,6 +61,24 @@ class SearchSpace(object):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+    def _encode_word_embeddings(self, embeddings_list: list) -> list:
+        # Encode Embeddings as strings and class placeholders since pickling embeddings later is getting very large
+        encoded_embeddings = []
+        for stacked_embeddings in embeddings_list:
+            encoded_stacked_embeddings = []
+            for embedding in stacked_embeddings:
+                embedding_type = embedding.__class__.__name__
+                if embedding_type == "WordEmbeddings":
+                    encoded_embeddings.append((embedding_type, embedding.embeddings))
+                elif embedding_type == "FlairEmbeddings":
+                    encoded_embeddings.append((embedding_type, embedding.name))
+            encoded_embeddings.append(encoded_stacked_embeddings)
+
+        return
+
+    def _decode_word_embeddings(self):
+        pass
+
 
 class TextClassifierSearchSpace(SearchSpace):
 
@@ -122,7 +140,7 @@ class SequenceTaggerSearchSpace(SearchSpace):
     def add_word_embeddings(self,
                             parameter: Enum,
                             options: list):
-
+        encoded_embeddings = self._encode_word_embeddings(options)
         self.parameter_storage.add(parameter_name=parameter.value, value_range=options)
 
     def check_completeness(self, search_strategy: str):

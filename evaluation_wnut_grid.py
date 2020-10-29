@@ -23,12 +23,11 @@ search_space.add_parameter(param.SequenceTagger.RNN_LAYERS, options=[2, 3, 4, 5,
 search_space.add_parameter(param.SequenceTagger.USE_RNN, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.USE_CRF, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.REPROJECT_EMBEDDINGS, options=[True, False])
-search_space.add_word_embeddings(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordEmbeddings('en'), WordEmbeddings('glove')]])
-"""
-[FlairEmbeddings('news-forward'), FlairEmbeddings('news-backward')],
-[TransformerWordEmbeddings()],
-[ELMoEmbeddings()]
-"""
+search_space.add_word_embeddings(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordEmbeddings('en'), WordEmbeddings('glove')],
+                                                                                [FlairEmbeddings('news-forward'),
+                                                                                 FlairEmbeddings('news-backward')],
+                                                                                [TransformerWordEmbeddings()]
+                                                                                ])
 
 search_strategy.make_configurations(search_space)
 
