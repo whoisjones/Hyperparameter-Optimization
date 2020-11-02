@@ -24,13 +24,16 @@ search_space.add_parameter(param.SequenceTagger.USE_RNN, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.USE_CRF, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.REPROJECT_EMBEDDINGS, options=[True, False])
 search_space.add_word_embeddings(param.SequenceTagger.WORD_EMBEDDINGS, options=[
-                                                                                [CharacterEmbeddings(char_embedding_dim=50)],
-                                                                                [WordEmbeddings('glove')],
+                                                                                [WordEmbeddings('glove'),
+                                                                                 CharacterEmbeddings()],
+                                                                                [WordEmbeddings('glove'),
+                                                                                 WordEmbeddings('en')],
                                                                                 [TransformerWordEmbeddings('distilgpt2')],
-                                                                                [BytePairEmbeddings('en')],
-                                                                                [FlairEmbeddings('news-backward')],
+                                                                                [TransformerWordEmbeddings()],
+                                                                                [FlairEmbeddings('news-forward'),
+                                                                                 FlairEmbeddings('news-backward')],
                                                                                 [PooledFlairEmbeddings('news-forward')],
-                                                                                [ELMoEmbeddings(model="medium", embedding_mode="average")],
+                                                                                [ELMoEmbeddings()],
                                                                                 ])
 
 search_strategy.make_configurations(search_space)
