@@ -4,7 +4,7 @@ from flair.embeddings import BytePairEmbeddings, CharacterEmbeddings, ELMoEmbedd
 
 from flair.datasets import WNUT_17
 
-corpus = WNUT_17().downsample(0.01)
+corpus = WNUT_17()
 
 search_space = search_spaces.SequenceTaggerSearchSpace()
 search_strategy = search_strategies.GridSearch()
