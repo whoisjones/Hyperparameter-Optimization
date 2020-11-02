@@ -7,6 +7,7 @@ from abc import abstractmethod
 from .parameter_collections import ParameterStorage, TrainingConfigurations
 from FlairParamOptimizer.parameter_listings.parameters_for_user_input import Budget, EvaluationMetric, OptimizationValue
 from FlairParamOptimizer.parameter_listings.parameter_groups import DOCUMENT_EMBEDDINGS
+from flair.embeddings import BytePairEmbeddings, CharacterEmbeddings, ELMoEmbeddings, FlairEmbeddings, PooledFlairEmbeddings, TransformerWordEmbeddings, FastTextEmbeddings, WordEmbeddings
 
 log = logging.getLogger("flair")
 
@@ -63,21 +64,51 @@ class SearchSpace(object):
 
     def _encode_word_embeddings(self, embeddings_list: list) -> list:
         # Encode Embeddings as strings and class placeholders since pickling embeddings later is getting very large
-        encoded_embeddings = []
+        encoded_embeddings_list = []
         for stacked_embeddings in embeddings_list:
             encoded_stacked_embeddings = []
             for embedding in stacked_embeddings:
-                embedding_type = embedding.__class__.__name__
-                if embedding_type == "WordEmbeddings":
-                    encoded_embeddings.append((embedding_type, embedding.embeddings))
-                elif embedding_type == "FlairEmbeddings":
-                    encoded_embeddings.append((embedding_type, embedding.name))
-            encoded_embeddings.append(encoded_stacked_embeddings)
 
-        return
+                embedding_class = embedding.__class__
 
-    def _decode_word_embeddings(self):
-        pass
+                if embedding_class == WordEmbeddings:
+                    class_args = {"embeddings":embedding.embeddings}
+                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
+
+                elif embedding_class in [FlairEmbeddings, PooledFlairEmbeddings]:
+                    class_args = {"model":embedding.name}
+                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
+
+                elif embedding_class == TransformerWordEmbeddings:
+                    class_args = {"model":embedding.name.replace("transformer-word-", "")}
+                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
+
+                elif embedding_class == BytePairEmbeddings:
+                    language, syllables, dim = embedding.name.replace("bpe-", "").split("-")
+                    class_args = {"language":language, "syllables":syllables, "dim":dim}
+                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
+
+                elif embedding_class == CharacterEmbeddings:
+                    #only default dictionary possible so far
+                    char_embedding_dim = embedding.char_embedding_dim
+                    hidden_size_char = embedding.hidden_size_char
+                    class_args = {"char_embedding_dim":char_embedding_dim,"hidden_size_char":hidden_size_char}
+                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
+
+                elif embedding_class == ELMoEmbeddings:
+                    model, embedding_mode = embedding.name.replace("elmo-", "").split("-")
+                    class_args = {"model":model, "embedding_mode":embedding_mode}
+                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
+
+                elif embedding_class == FastTextEmbeddings:
+                    class_args = {"embeddings": embedding.name}
+                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
+
+                else:
+                    raise Exception("Not a supported word embedding for hyper-parameter optimization.")
+
+            encoded_embeddings_list.append(encoded_stacked_embeddings)
+        return encoded_embeddings_list
 
 
 class TextClassifierSearchSpace(SearchSpace):
@@ -141,7 +172,7 @@ class SequenceTaggerSearchSpace(SearchSpace):
                             parameter: Enum,
                             options: list):
         encoded_embeddings = self._encode_word_embeddings(options)
-        self.parameter_storage.add(parameter_name=parameter.value, value_range=options)
+        self.parameter_storage.add(parameter_name=parameter.value, value_range=encoded_embeddings)
 
     def check_completeness(self, search_strategy: str):
         self._check_steering_parameters()

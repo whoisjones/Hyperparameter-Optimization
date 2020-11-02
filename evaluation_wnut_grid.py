@@ -1,6 +1,6 @@
 from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
-from flair.embeddings import WordEmbeddings, TransformerWordEmbeddings, ELMoEmbeddings, FlairEmbeddings
+from flair.embeddings import BytePairEmbeddings, CharacterEmbeddings, ELMoEmbeddings, FlairEmbeddings, PooledFlairEmbeddings, TransformerWordEmbeddings, WordEmbeddings
 
 from flair.datasets import WNUT_17
 
@@ -23,10 +23,14 @@ search_space.add_parameter(param.SequenceTagger.RNN_LAYERS, options=[2, 3, 4, 5,
 search_space.add_parameter(param.SequenceTagger.USE_RNN, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.USE_CRF, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.REPROJECT_EMBEDDINGS, options=[True, False])
-search_space.add_word_embeddings(param.SequenceTagger.WORD_EMBEDDINGS, options=[[WordEmbeddings('en'), WordEmbeddings('glove')],
-                                                                                [FlairEmbeddings('news-forward'),
-                                                                                 FlairEmbeddings('news-backward')],
-                                                                                [TransformerWordEmbeddings()]
+search_space.add_word_embeddings(param.SequenceTagger.WORD_EMBEDDINGS, options=[
+                                                                                [CharacterEmbeddings(char_embedding_dim=50)],
+                                                                                [WordEmbeddings('glove')],
+                                                                                [TransformerWordEmbeddings('distilgpt2')],
+                                                                                [BytePairEmbeddings('en')],
+                                                                                [FlairEmbeddings('news-backward')],
+                                                                                [PooledFlairEmbeddings('news-forward')],
+                                                                                [ELMoEmbeddings(model="medium", embedding_mode="average")],
                                                                                 ])
 
 search_strategy.make_configurations(search_space)

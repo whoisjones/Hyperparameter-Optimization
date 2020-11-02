@@ -3,8 +3,8 @@ from pathlib import Path
 
 import flair.nn
 from flair.data import Corpus
-from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, WordEmbeddings, \
-    TransformerDocumentEmbeddings, StackedEmbeddings
+from flair.embeddings import DocumentRNNEmbeddings, DocumentPoolEmbeddings, TransformerDocumentEmbeddings, StackedEmbeddings
+from flair.embeddings import BytePairEmbeddings, CharacterEmbeddings, ELMoEmbeddings, FlairEmbeddings, PooledFlairEmbeddings, TransformerWordEmbeddings, WordEmbeddings
 from flair.models import TextClassifier, SequenceTagger
 from flair.trainers import ModelTrainer
 
@@ -99,26 +99,6 @@ class SequenceTagging(DownstreamTaskModel):
         super().__init__()
         self.tag_type = tag_type
 
-    def _set_up_model(self, params: dict, tag_dictionary):
-
-        sequence_tagger_params = {
-            key: params[key] for key in params if key in SEQUENCE_TAGGER_PARAMETERS
-        }
-
-        embedding_types = [WordEmbeddings(embedding) for embedding in params['embeddings']]
-
-        embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
-
-        sequence_tagger_params['embeddings'] = embeddings
-
-        tagger: SequenceTagger = SequenceTagger(
-            tag_dictionary=tag_dictionary,
-            tag_type=self.tag_type,
-            **sequence_tagger_params,
-        )
-
-        return tagger
-
     def _train(self, corpus: Corpus, params: dict, base_path: Path, max_epochs: int, optimization_value: str):
         """
         trains a sequence tagger model
@@ -155,3 +135,27 @@ class SequenceTagging(DownstreamTaskModel):
             result = results['dev_loss_history'][-1]
 
         return {'result': result, 'params': params}
+
+    def _set_up_model(self, params: dict, tag_dictionary):
+
+        sequence_tagger_params = {
+            key: params[key] for key in params if key in SEQUENCE_TAGGER_PARAMETERS
+        }
+
+        embedding_types = []
+        for embedding in params['embeddings']:
+            EmbeddingClass = embedding.get("embedding_class")
+            class_arguments = embedding.get("class_arguments")
+            embedding_types.append(EmbeddingClass(**class_arguments))
+
+        embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
+
+        sequence_tagger_params['embeddings'] = embeddings
+
+        tagger: SequenceTagger = SequenceTagger(
+            tag_dictionary=tag_dictionary,
+            tag_type=self.tag_type,
+            **sequence_tagger_params,
+        )
+
+        return tagger
