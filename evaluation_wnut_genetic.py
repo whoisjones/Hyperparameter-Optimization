@@ -1,6 +1,5 @@
 from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
-from flair.embeddings import WordEmbeddings
 
 from flair.datasets import WNUT_17
 

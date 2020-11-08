@@ -142,13 +142,13 @@ class SequenceTagging(DownstreamTaskModel):
             key: params[key] for key in params if key in SEQUENCE_TAGGER_PARAMETERS
         }
 
-        embedding_types = []
+        word_embeddings = []
         for embedding in params['embeddings']:
-            EmbeddingClass = embedding.get("embedding_class")
-            class_arguments = embedding.get("class_arguments")
-            embedding_types.append(EmbeddingClass(**class_arguments))
+            EmbeddingClass = embedding.get("__class__")
+            instance_parameters = {parameter:value for parameter, value in embedding.items() if parameter != "__class__"}
+            word_embeddings.append(EmbeddingClass(**instance_parameters))
 
-        embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
+        embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=word_embeddings)
 
         sequence_tagger_params['embeddings'] = embeddings
 

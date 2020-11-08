@@ -1,6 +1,6 @@
 from FlairParamOptimizer import search_strategies, search_spaces, orchestrator
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
-from flair.embeddings import BytePairEmbeddings, CharacterEmbeddings, ELMoEmbeddings, FlairEmbeddings, PooledFlairEmbeddings, TransformerWordEmbeddings, WordEmbeddings
+from flair.embeddings import  CharacterEmbeddings, ELMoEmbeddings, FlairEmbeddings, PooledFlairEmbeddings, TransformerWordEmbeddings, WordEmbeddings
 
 from flair.datasets import WNUT_17
 
@@ -23,18 +23,9 @@ search_space.add_parameter(param.SequenceTagger.RNN_LAYERS, options=[2, 3, 4, 5,
 search_space.add_parameter(param.SequenceTagger.USE_RNN, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.USE_CRF, options=[True, False])
 search_space.add_parameter(param.SequenceTagger.REPROJECT_EMBEDDINGS, options=[True, False])
-search_space.add_word_embeddings(param.SequenceTagger.WORD_EMBEDDINGS, options=[
-                                                                                [WordEmbeddings('glove'),
-                                                                                 CharacterEmbeddings()],
-                                                                                [WordEmbeddings('glove'),
-                                                                                 WordEmbeddings('en')],
-                                                                                [TransformerWordEmbeddings('distilgpt2')],
-                                                                                [TransformerWordEmbeddings()],
-                                                                                [FlairEmbeddings('news-forward'),
-                                                                                 FlairEmbeddings('news-backward')],
-                                                                                [PooledFlairEmbeddings('news-forward')],
-                                                                                [ELMoEmbeddings()],
-                                                                                ])
+search_space.add_word_embeddings(options=[[TransformerWordEmbeddings(model="distilbert-base-uncased", batch_size=16),
+                                           FlairEmbeddings("news-backward"),
+                                           WordEmbeddings("glove")]])
 
 search_strategy.make_configurations(search_space)
 

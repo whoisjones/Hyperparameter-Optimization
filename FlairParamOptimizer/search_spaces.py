@@ -27,7 +27,7 @@ class SearchSpace(object):
         pass
 
     @abstractmethod
-    def add_word_embeddings(self, parameter: Enum, options):
+    def add_word_embeddings(self, options):
         pass
 
     @abstractmethod
@@ -66,47 +66,7 @@ class SearchSpace(object):
         # Encode Embeddings as strings and class placeholders since pickling embeddings later is getting very large
         encoded_embeddings_list = []
         for stacked_embeddings in embeddings_list:
-            encoded_stacked_embeddings = []
-            for embedding in stacked_embeddings:
-
-                embedding_class = embedding.__class__
-
-                if embedding_class == WordEmbeddings:
-                    class_args = {"embeddings":embedding.embeddings}
-                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
-
-                elif embedding_class in [FlairEmbeddings, PooledFlairEmbeddings]:
-                    class_args = {"model":embedding.name}
-                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
-
-                elif embedding_class == TransformerWordEmbeddings:
-                    class_args = {"model":embedding.name.replace("transformer-word-", "")}
-                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
-
-                elif embedding_class == BytePairEmbeddings:
-                    language, syllables, dim = embedding.name.replace("bpe-", "").split("-")
-                    class_args = {"language":language, "syllables":syllables, "dim":dim}
-                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
-
-                elif embedding_class == CharacterEmbeddings:
-                    #only default dictionary possible so far
-                    char_embedding_dim = embedding.char_embedding_dim
-                    hidden_size_char = embedding.hidden_size_char
-                    class_args = {"char_embedding_dim":char_embedding_dim,"hidden_size_char":hidden_size_char}
-                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
-
-                elif embedding_class == ELMoEmbeddings:
-                    model, embedding_mode = embedding.name.replace("elmo-", "").split("-")
-                    class_args = {"model":model, "embedding_mode":embedding_mode}
-                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
-
-                elif embedding_class == FastTextEmbeddings:
-                    class_args = {"embeddings": embedding.name}
-                    encoded_stacked_embeddings.append({"embedding_class":embedding_class, "class_arguments":class_args})
-
-                else:
-                    raise Exception("Not a supported word embedding for hyper-parameter optimization.")
-
+            encoded_stacked_embeddings = [embedding.instance_parameters for embedding in stacked_embeddings]
             encoded_embeddings_list.append(encoded_stacked_embeddings)
         return encoded_embeddings_list
 
@@ -132,11 +92,9 @@ class TextClassifierSearchSpace(SearchSpace):
             function_arguments["value_range"] = options
         return function_arguments
 
-    def add_word_embeddings(self,
-                            parameter: Enum,
-                            options: list):
+    def add_word_embeddings(self, options: list):
         embedding_key_and_value_range_arguments = self._extract_embedding_keys_and_value_range_arguments(parameter, options)
-        self.parameter_storage.add(parameter_name=parameter.value, **embedding_key_and_value_range_arguments)
+        self.parameter_storage.add(parameter_name="embeddings", **embedding_key_and_value_range_arguments)
 
     def check_completeness(self, search_strategy: str):
         self._check_steering_parameters()
@@ -168,11 +126,9 @@ class SequenceTaggerSearchSpace(SearchSpace):
                       options: list):
         self.parameter_storage.add(parameter_name=parameter.value, value_range=options)
 
-    def add_word_embeddings(self,
-                            parameter: Enum,
-                            options: list):
+    def add_word_embeddings(self, options: list):
         encoded_embeddings = self._encode_word_embeddings(options)
-        self.parameter_storage.add(parameter_name=parameter.value, value_range=encoded_embeddings)
+        self.parameter_storage.add(parameter_name="embeddings", value_range=encoded_embeddings)
 
     def check_completeness(self, search_strategy: str):
         self._check_steering_parameters()

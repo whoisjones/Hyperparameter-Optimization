@@ -1,4 +1,4 @@
-import pytest
+
 import collections
 from FlairParamOptimizer import search_spaces, search_strategies
 import FlairParamOptimizer.parameter_listings.parameters_for_user_input as param
