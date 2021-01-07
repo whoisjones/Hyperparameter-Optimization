@@ -25,7 +25,7 @@ joblib==0.15.1
 kiwisolver==1.2.0
 konoha==4.6.1
 langdetect==1.0.8
-lxml==4.5.2
+lxml==4.6.2
 matplotlib==3.2.2
 more-itertools==8.4.0
 mpld3==0.3
